@@ -618,19 +618,7 @@
     done);)
 )
 
-(define <InfixAtoms>
-	(<infix-clean_comments>
-		(new
-			(*parser <InfixParen>)
-			(*parser <Number>)
-			(*parser <InfixSymbol>)
-			*not-followed-by
-			(*parser <InfixSymbol>)
-			(*parser <InfixSexprEscape>)
-			(*parser <InfixNeg>)
-			(*disj 5)
-		done))
-)
+
 
 (define <InfixSexprEscape>
   ;(<infix-clean_comments>
@@ -642,6 +630,20 @@
         (lambda (_ sxpr) sxpr)
       )
     done);)
+)
+
+(define <InfixAtoms>
+  (<infix-clean_comments>
+    (new
+      (*parser <InfixParen>)
+      (*parser <Number>)
+      (*parser <InfixSymbol>)
+      *not-followed-by
+      (*parser <InfixSymbol>)
+      (*parser <InfixSexprEscape>)
+      (*parser <InfixNeg>)
+      (*disj 5)
+    done))
 )
 
 (define <InfixArgList>
