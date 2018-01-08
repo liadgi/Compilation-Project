@@ -36,3 +36,16 @@
 	(lambda (file)
 		(pipeline (file->list file)))
 )
+
+
+(define get-constants-list
+	(lambda (var-list exp) 
+		(if (not (pair? exp)) '()
+			(if (eq? (car exp) 'const) (list (cdr exp))
+				(append var-list (get-constants-list var-list (car exp)) 
+								 (get-constants-list var-list (cdr exp))))
+		)
+	)
+)
+
+;(get-vars '() '(define a 5) 'const)
