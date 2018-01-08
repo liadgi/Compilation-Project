@@ -37,6 +37,16 @@
 		(pipeline (file->list file)))
 )
 
+(define list->set
+	(lambda (s)
+		(fold-right 
+			(lambda (a s)
+				(if (ormap (lambda (si) (equal? a si)) s)
+					s 
+					(cons a s)))
+			'()
+			s)
+))
 
 (define get-constants-list
 	(lambda (var-list exp) 
@@ -47,5 +57,3 @@
 		)
 	)
 )
-
-;(get-vars '() '(define a 5) 'const)
