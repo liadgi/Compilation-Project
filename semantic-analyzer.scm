@@ -1,3 +1,5 @@
+(load "tag-parser.scm")
+
 (define applic-lambda-nil? 
 	(lambda (pexpr)
 		(and 	
