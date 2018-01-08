@@ -27,3 +27,12 @@
 							'())
 						(cons ch (run)))))))
 				(run)))))
+
+
+(define code-gen
+)
+
+(define compile-scheme-file
+	(lambda (file)
+		(pipeline (file->list file)))
+)
