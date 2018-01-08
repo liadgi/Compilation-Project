@@ -49,10 +49,6 @@
 			  (else `(or ,(map parse sexpr))))
 ))
 
-; not working yet because 'and' is not implemented
-#;(parse '(or (or (f1 x) (f2 y))
-	(or (f3 z) (f4 w) (f5 r))
-	(and (f6 u) (f7 t))))
 
 (define is-lambda?
 	(lambda (sexpr)
@@ -68,8 +64,6 @@
 
 (define lambda-simple-handler
 	(lambda (exprs)
-		;(if (eq? (length exprs) 2)
-		;	`(lambda-simple ,(car exprs) ,(parse (cadr exprs))) 
 			`(lambda-simple ,(car exprs) ,(parse `(begin ,@(cdr exprs))));)
 ))
 
@@ -98,8 +92,6 @@
 	(lambda (exprs)
 		(let ((params (car (get-opt-params (car exprs))))
 			  (opt-params (cdr (get-opt-params (car exprs)))))
-		;(if (eq? (length exprs) 2)
-		;	`(lambda-opt ,params ,opt-params ,(parse (cadr exprs))) 
 			`(lambda-opt ,params ,opt-params ,(parse `(begin ,@(cdr exprs)))));)
 ))
 
@@ -185,150 +177,6 @@
 			))
 ))
 
-#;(define let-param?
-	(lambda (sexpr)
-		(and
-			(pair? sexpr) ; '(a 3)
-			(list? (cdr sexpr)) ; not '(a . 3)
-			(eq? (length sexpr) 2) ; not '(a b 3)
-			(symbol? (car sexpr)) ; is first elem valid
-			;(not (symbol? (cadr sexpr))) ; check second elem for cases such as '(a b), '(a define), '(a ())
-			)
-))
-
-#;(define let-param-names-unique?
-	(lambda (sexpr)
-		(letrec ((unique? 
-					(lambda (agg-vars rest)
-							(if (null? rest)
-								 #t
-								 (and (not (member (caar rest) agg-vars))
-								   	  (unique? (append agg-vars (list (caar rest))) (cdr rest)))
-					))
-				))
-		(unique? (list (caar sexpr)) (cdr sexpr)))
-))
-
-#;(define let-params?
-	(lambda (sexpr)
-		(and
-			(list? sexpr) ; params is list
-			(andmap let-param? sexpr) ; each param is valid
-			(let-param-names-unique? sexpr) ; each param is unique
-			)
-))
-
-
-
-#;(define let-body?
-	(lambda (sexpr)
-		(not (null? sexpr))
-))
-
-
-#;(define let-first-form?
-	(lambda (sexpr)
-		(and
-			(pair? (cdr sexpr)) ; no "'(let EMPTY)" or "'(let* EMPTY)"
-			(let-params? (cadr sexpr))
-			(let-body? (cddr sexpr))
-			)
-))
-
-; add let form - (let () 5)
-; another let form (racket doc) - (let procname (x y) y)
-#;(define let?
-	(lambda (sexpr)
-		(and
-			(eq? (car sexpr) 'let) 
-			(or
-				(let-first-form? sexpr)
-				;(let-second-form? sexpr)
-			))
-))
-
-#;(define get-let-vars
-	(lambda (sexpr)
-		(map car (cadr sexpr))
-))
-
-#;(define get-let-exps
-	(lambda (sexpr)
-		(cddr sexpr)
-))
-
-#;(define get-let-args
-	(lambda (sexpr)
-		(map cadr (cadr sexpr))
-))
-
-; check for hygiene
-
-#;(define let-handler
-	(lambda (sexpr)
-		(let ((vars (get-let-vars sexpr))
-			  (exps (get-let-exps sexpr))
-			  (args (get-let-args sexpr)))
-			(parse 
-				`((lambda ,vars ,@exps ) ,@args)
-			)
-		)
-))
-
-#;(define let*?
-	(lambda (sexpr)
-		(and
-			(eq? (car sexpr) 'let*) 
-			(let-first-form? sexpr))
-))
-
-#;(define let*-handler
-	(lambda (sexpr)
-		(let ((first-param (caadr sexpr))
-			  (rest-params (cdadr sexpr))
-			  (exps (cddr sexpr)))
-			(parse 
-				(if (null? rest-params)
-				`(let (,first-param) ,@exps)
-				`(let (,first-param) (let* ,rest-params ,@exps)))
-			)
-		)
-
-))
-
-; tests
-;(parse '(let ((a 3)) c))
-;(parse '(let ((a 3) (b 5) (c 9)) c d))
-
-#;(define letrec?
-	(lambda (sexpr)
-		(and
-			(eq? (car sexpr) 'letrec) 
-			(let-first-form? sexpr))
-))
-
-#;(define create-letrec-vars
-	(lambda (sexpr)
-		(map (lambda (param) `(,(car param) 'dc)) (cadr sexpr))
-))
-
-#;(define create-letrec-sets
-	(lambda (sexpr)
-		(map (lambda (param) `(set! ,(car param) ,(cadr param))) (cadr sexpr))
-))
-
-#;(define letrec-handler
-	(lambda (sexpr)
-		(let ((dc-vars (create-letrec-vars sexpr))
-			  (sets (create-letrec-sets sexpr))
-			  (exps (get-let-exps sexpr))
-			  )
-			(parse 
-				`(let ,dc-vars ,@sets ,@exps)
-			)
-		)
-
-))
 
 (define unique?
 	(lambda (lst)
