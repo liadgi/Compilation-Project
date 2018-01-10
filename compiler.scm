@@ -1,6 +1,7 @@
 (load "sexpr-parser.scm")
 (load "tag-parser.scm")
 (load "semantic-analyzer.scm")
+(load "constants.scm")
 
 (define pipeline
 	(lambda (s)
@@ -30,11 +31,14 @@
 
 
 (define code-gen
+	(lambda (scheme-code)
+		scheme-code)
 )
 
 (define compile-scheme-file
 	(lambda (file)
-		(pipeline (file->list file)))
+		(code-gen 
+			(pipeline (file->list file))))
 )
 
 (define list->set
@@ -48,12 +52,13 @@
 			s)
 ))
 
-(define get-constants-list
-	(lambda (var-list exp) 
-		(if (not (pair? exp)) '()
-			(if (eq? (car exp) 'const) (list (cdr exp))
-				(append var-list (get-constants-list var-list (car exp)) 
-								 (get-constants-list var-list (cdr exp))))
-		)
-	)
+
+
+(define write-to-target-file
+	(lambda (assembly-code)
+		(let ((output-port (open-output-file "target.asm")))
+			(write assembly-code output-port)
+			(close-output-port output-port)
+		))
 )
+
