@@ -15,8 +15,10 @@
   (lambda () (set! a (+ a 1)))
   (lambda (b) (set! a b))
   (lambda (c) (set! c "hello"))))
-
+#f
 '(1 2 3)
+
+
 
 ;(define x 3)
 ;x 

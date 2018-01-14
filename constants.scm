@@ -60,7 +60,7 @@
 )
 
 
-(define build-pairs
+(define build-constants-table
 	(lambda (exp)
 		 (let* ((consts (get-constants-list '() exp))
 		 		(table (init-atom-constants-in-table consts 0)))
