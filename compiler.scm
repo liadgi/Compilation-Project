@@ -171,11 +171,11 @@
 		(let* ((constants-table (car structure))
 
 				(prolog-assembly (gen-prolog-assembly))
-				(contstants-assembly (gen-constants-assembly constants-table))
+				(constants-assembly (gen-constants-assembly constants-table))
 				(section-bss (gen-section-text))
 				(code-assembly (gen-code-assembly (cadr structure) constants-table))
 				)
-			contstants-assembly
+			constants-assembly
 			)
 		)
 )
@@ -185,7 +185,8 @@
 (define compile-scheme-file
 	(lambda (file output-file)
 		(let* ((ast (pipeline (file->list file)))
-			   (const-table (build-constants-table ast)))
+			   (const-table (build-constants-table ast))
+			   )
 		;ast
 		;const-table
 		(begin 

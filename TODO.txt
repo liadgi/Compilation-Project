@@ -1,0 +1,13 @@
+TODO:
+
+
+liad - nested lists
+
+neta -
+fraction
+char
+string
+add vector
+
+
+symbol table
