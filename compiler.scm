@@ -42,48 +42,85 @@
 		(concat-strings type value)
 		))
 
-(define print-line
+(define print-tabbed-line
 	(lambda (line)
-		(concat-strings line) 
+		(display (concat-strings "\t" line "\n") output-port)
 		))
 
-(define gen-const-table
+(define print-line
+	(lambda (line)
+		(display (concat-strings line "\n") output-port)
+		))
+
+(define gen-make-literal-integer
+	(lambda (value address)
+		(let ((strVal (number->string value)))
+			(print-line (concat-strings "sobInt" strVal ":"))
+			(print-tabbed-line (concat-strings "dq MAKE_LITERAL(T_INTEGER, " strVal ")"))
+		)))
+
+(define gen-make-pair
+	(lambda (value)
+		value
+		))
+
+(define gen-prolog-assembly
+	(lambda ()
+		"prolog"
+		))
+
+(define gen-make-literal-nil
+	(lambda ()
+		(print-line "sobNil:")
+		(print-tabbed-line "dq SOB_NIL")
+		))
+
+(define gen-constants-assembly
 	(lambda (table)
-		(letrec ((gen (lambda (table agg-code)
-			(if (null? table) 
-				agg-code
-				(gen (cdr table) (string-append agg-code
-					
+		(letrec ((gen (lambda (table)
+			(if (not (null? table))
+				(begin 
 					(let* ((first-pair (car table))
 						   (value (car first-pair))
 						   (address (cadr first-pair))
 						   (type (caddr first-pair))
 						   )
-						(cond ((eq? type 'T_NIL) (print-line "dq SOB_NIL "))
-							  ((eq? type 'T_INT) (print-line (concat-strings "dq MAKE_LITERAL(T_INTEGER, " (number->string value) ") ")))
-							  (else "DO_LATER"))
+						(cond ((eq? type 'T_NIL) (gen-make-literal-nil))
+							  ((eq? type 'T_INT) (gen-make-literal-integer value address))
+							  (else "DO_LATER "))
 
 						)
+					(gen (cdr table))
+					)
 
-					))
-				))))
+				)
+				)))
+		(gen table))
 		
-		(gen table "")
-		)
-))
-
-(define code-gen
-	(lambda (structure)
-		(gen-const-table (car structure))
+		
 		)
 )
 
+(define code-gen
+	(lambda (structure)
+		(let* ((contstants-assembly (gen-constants-assembly (car structure)))
+				(prolog-assembly (gen-prolog-assembly)))
+			contstants-assembly
+			)
+		)
+)
+
+(define output-port #f)
+
 (define compile-scheme-file
-	(lambda (file)
+	(lambda (file output-file)
 		(let* ((ast (pipeline (file->list file)))
 			   (const-table (build-constants-table ast)))
-			(write-to-target-file (code-gen (list const-table ast))
-				)))
+		(begin 
+			(set! output-port (open-output-file output-file))
+			(code-gen (list const-table ast))
+			(close-output-port output-port))
+				))
 )
 
 (define list->set
@@ -100,11 +137,9 @@
 
 
 (define write-to-target-file
-	(lambda (assembly-code)
-		(let* ((none (delete-file "target.asm"))
-			   (output-port (open-output-file "target.asm")))
+	(lambda (assembly-code output-file)
 			(write assembly-code output-port)
 			(close-output-port output-port)
-		))
+		)
 )
 
