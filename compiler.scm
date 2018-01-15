@@ -37,10 +37,6 @@
 			(string-append (car args) (apply concat-strings (cdr args))))
 		))
 
-(define gen-const-label
-	(lambda (type value)
-		(concat-strings type value)
-		))
 
 (define print-tabbed-line
 	(lambda (line)
@@ -53,26 +49,50 @@
 		))
 
 (define gen-make-literal-integer
-	(lambda (value address)
+	(lambda (value label)
 		(let ((strVal (number->string value)))
-			(print-line (concat-strings "sobInt" strVal ":"))
+			(print-line (concat-strings label ":"))
 			(print-tabbed-line (concat-strings "dq MAKE_LITERAL(T_INTEGER, " strVal ")"))
 		)))
 
-(define gen-make-pair
-	(lambda (value)
-		value
+(define gen-make-literal-pair
+	(lambda (label rest)
+		(let ((first-label (car rest))
+			  (second-label (cadr rest)))
+			(print-line (concat-strings label ":"))
+			(print-tabbed-line (concat-strings "dq MAKE_LITERAL_PAIR(" first-label ", " second-label ")"))
+		)
 		))
+
 
 (define gen-prolog-assembly
 	(lambda ()
-		"prolog"
+		(print-line "section .data")
+		(print-line "start_of_data:")
 		))
 
 (define gen-make-literal-nil
 	(lambda ()
 		(print-line "sobNil:")
 		(print-tabbed-line "dq SOB_NIL")
+		))
+
+(define gen-make-literal-true
+	(lambda ()
+		(print-line "sobTrue:")
+		(print-tabbed-line "dq SOB_TRUE")
+		))
+
+(define gen-make-literal-false
+	(lambda ()
+		(print-line "sobFalse:")
+		(print-tabbed-line "dq SOB_FALSE")
+		))
+
+(define gen-make-literal-void
+	(lambda ()
+		(print-line "sobVoid:")
+		(print-tabbed-line "dq SOB_VOID")
 		))
 
 (define gen-constants-assembly
@@ -84,9 +104,15 @@
 						   (value (car first-pair))
 						   (address (cadr first-pair))
 						   (type (caddr first-pair))
+						   (label (cadddr first-pair))
+						   (rest (cddddr first-pair))
 						   )
 						(cond ((eq? type 'T_NIL) (gen-make-literal-nil))
-							  ((eq? type 'T_INT) (gen-make-literal-integer value address))
+							  ((eq? type 'T_BOOL) (if value (gen-make-literal-true) (gen-make-literal-false)))
+							  ((eq? type 'T_VOID) (gen-make-literal-void))
+							  ((eq? type 'T_INT) (gen-make-literal-integer value label))
+							  ((eq? type 'T_PAIR) (gen-make-literal-pair label rest))
+							  ;((eq? type 'T_INT) (gen-make-literal-integer value address))
 							  (else "DO_LATER "))
 
 						)
@@ -101,10 +127,54 @@
 		)
 )
 
-(define code-gen
+#;(define symbol-gen
+	(lambda (...)
+
+))
+
+
+(define gen-section-bss
+	(lambda ()
+		(print-line "")
+		(print-line "section .bss")
+))
+
+(define gen-section-text
+	(lambda ()
+		(print-line "")
+		(print-line "section .text")
+		(print-line "main:")
+))
+
+(define const-gen
+	(lambda (value const-table)
+		(let* ((const-label (lookup-constant-get-label value const-table)))
+			(print-tabbed-line (concat-strings "mov rax, [" const-label "]"))
+			)
+))
+
+(define gen-code-assembly
+	(lambda (ast constants-table)
+		(if (null? ast) void
+			(begin
+				(cond ((eq? (caar ast) 'const) (const-gen (cadar ast) constants-table)) 
+					  )
+				(gen-code-assembly (cdr ast) constants-table)
+			)
+		)
+		))
+
+;(define code-gen
+
+(define frame-gen
 	(lambda (structure)
-		(let* ((contstants-assembly (gen-constants-assembly (car structure)))
-				(prolog-assembly (gen-prolog-assembly)))
+		(let* ((constants-table (car structure))
+
+				(prolog-assembly (gen-prolog-assembly))
+				(contstants-assembly (gen-constants-assembly constants-table))
+				(section-bss (gen-section-text))
+				(code-assembly (gen-code-assembly (cadr structure) constants-table))
+				)
 			contstants-assembly
 			)
 		)
@@ -116,9 +186,13 @@
 	(lambda (file output-file)
 		(let* ((ast (pipeline (file->list file)))
 			   (const-table (build-constants-table ast)))
+		;ast
+		;const-table
 		(begin 
+			(delete-file output-file) 
 			(set! output-port (open-output-file output-file))
-			(code-gen (list const-table ast))
+			(frame-gen (list const-table ast))
+			;(code-gen (list const-table symbol-table freevars ast))
 			(close-output-port output-port))
 				))
 )
