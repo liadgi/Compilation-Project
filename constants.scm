@@ -82,6 +82,7 @@
 							(list 
 								(let* ((atom (car lst))
 									   (label-counter (number->string counter)))
+									;atom
 									(cond ;((boolean? atom) (list 'sob 'T_BOOL))
 									  ((integer? atom) (list atom counter 'T_INT (concat-strings "sobInt" label-counter)))
 									  ((char? atom) (list atom counter 'T_CHAR (concat-strings "sobChar" label-counter)))
@@ -92,14 +93,15 @@
 									  	(let ((first (lookup-constant-get-label (car atom) table))
 										      (second (lookup-constant-get-label (cdr atom) table))
 										   (label-counter (number->string counter)))
-											((list `(,atom ,counter T_PAIR ,(concat-strings "sobPair" label-counter) ,first ,second)))
+											(list `(,atom ,counter T_PAIR ,(concat-strings "sobPair" label-counter) ,first ,second))
 											))
 									  (else (list atom counter "sobOTHER_TYPE" 'OTHER_TYPE))
 									)
 							)))
 						(+ counter 1))
-						)))) 
-			(append (build (list->set (flatten constants-list)) (list 
+						))))
+			;constants-list
+			(append (build (list->set constants-list) (list 
 				(list (list) counter 'T_NIL "sobNil") 
 				(list void (+ counter 1) 'T_VOID "sobVoid") 
 				(list #t (+ counter 2) 'T_BOOL "sobTrue")
