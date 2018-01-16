@@ -86,11 +86,17 @@
 			(print-tabbed-line (concat-strings "dq MAKE_LITERAL_FRACTION(" first ", " second ")"))
 		)))
 
-(define gen-prolog-assembly
+(define gen-prologue-assembly
 	(lambda ()
+		(print-line "%include \"macrodefs.inc\"")
 		(print-line "section .data")
 		(print-line "start_of_data:")
 		))
+
+(define gen-epilogue-assembly
+	(lambda ()
+		(print-tabbed-line "ret")
+))
 
 (define gen-make-literal-nil
 	(lambda ()
@@ -160,6 +166,8 @@
 	(lambda ()
 		(print-line "")
 		(print-line "section .bss")
+		(print-line "extern write_sob, write_sob_if_not_void")
+		(print-line "global main")
 ))
 
 (define gen-section-text
@@ -173,16 +181,24 @@
 	(lambda (value const-table)
 		(let* ((const-label (lookup-constant-get-label value const-table)))
 			(print-tabbed-line (concat-strings "mov rax, [" const-label "]"))
+			(print-tabbed-line (concat-strings "push qword [" const-label "]"))
+			(print-tabbed-line "call write_sob_if_not_void")
+			(print-tabbed-line "add rsp, 1*8")
 			)
 ))
 
-(define gen-code-assembly
+(define gen-code-for-ast
 	(lambda (ast constants-table)
-		(if (null? ast) void
-			(begin
-				(cond ((eq? (caar ast) 'const) (const-gen (cadar ast) constants-table)) 
+		(cond ((eq? (car ast) 'const) (const-gen (cadr ast) constants-table)) 
 					  )
-				(gen-code-assembly (cdr ast) constants-table)
+))
+
+(define gen-code-assembly
+	(lambda (asts constants-table)
+		(if (null? asts) void
+			(begin
+				(gen-code-for-ast (car asts) constants-table)
+				(gen-code-assembly (cdr asts) constants-table)
 			)
 		)
 		))
@@ -193,10 +209,12 @@
 	(lambda (structure)
 		(let* ((constants-table (car structure))
 
-				(prolog-assembly (gen-prolog-assembly))
+				(prologue-assembly (gen-prologue-assembly))
 				(constants-assembly (gen-constants-assembly constants-table))
-				(section-bss (gen-section-text))
+				(section-bss (gen-section-bss))
+				(section-text (gen-section-text))
 				(code-assembly (gen-code-assembly (cadr structure) constants-table))
+				(epilogue-assembly (gen-epilogue-assembly))
 				)
 			constants-assembly
 			)
@@ -207,16 +225,16 @@
 
 (define compile-scheme-file
 	(lambda (file output-file)
-		(let* ((ast (pipeline (file->list file)))
-			   (const-table (build-constants-table ast))
+		(let* ((asts (pipeline (file->list file)))
+			   (const-table (build-constants-table asts))
 			   )
-		;ast
+		;asts
 		;const-table
 		;void
 		(begin 
 			(delete-file output-file) 
 			(set! output-port (open-output-file output-file))
-			(frame-gen (list const-table ast))
+			(frame-gen (list const-table asts))
 			;(code-gen (list const-table symbol-table freevars ast))
 			(close-output-port output-port))
 				))

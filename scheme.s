@@ -193,35 +193,36 @@ sobVec1:
 section .bss
 
 extern exit, printf, scanf
-global main, write_sob, write_sob_if_not_void
+;global main, write_sob, write_sob_if_not_void
+global write_sob, write_sob_if_not_void
 section .text
-main:
-	nop
-	; setup a fake closure just to see how it prints:
-	mov rax, 0x1234
-	sal rax, 30
-	or rax, sob6 + 8 - start_of_data
-	sal rax, 4
-	or rax, T_CLOSURE
-	mov qword [sob6], rax
-	mov qword [sob6 + 8], main
+;main:
+;	nop
+;	; setup a fake closure just to see how it prints:
+;	mov rax, 0x1234
+;	sal rax, 30
+;	or rax, sob6 + 8 - start_of_data
+;	sal rax, 4
+;	or rax, T_CLOSURE
+;	mov qword [sob6], rax
+;	mov qword [sob6 + 8], main
 
 	; printing the fake closure:	
-	push qword [sob6]
-	call write_sob_if_not_void
-	add rsp, 1*8
+;	push qword [sob6]
+;	call write_sob_if_not_void
+;	add rsp, 1*8
 
 	; printing a vector:
-	push qword [sobVec1]
-	call write_sob_if_not_void
-	add rsp, 1*8
+;	push qword [sobVec1]
+;	call write_sob_if_not_void
+;	add rsp, 1*8
 
 	; will void print??
-	push qword SOB_VOID
-	call write_sob_if_not_void
-	add rsp, 1*8
+;	push qword SOB_VOID
+;	call write_sob_if_not_void
+;	add rsp, 1*8
 	
-	ret
+;	ret
 
 write_sob_undefined:
 	push rbp
