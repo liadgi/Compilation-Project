@@ -78,6 +78,13 @@
 			 (gen-vector-refs (cdr rest) (concat-strings str (car rest) ", ")))
 		))
 
+(define gen-make-literal-fraction
+	(lambda (label rest)
+		(let ((first (car rest))
+			(second (cadr rest)))
+			(print-line (concat-strings label ":"))
+			(print-tabbed-line (concat-strings "dq MAKE_LITERAL_FRACTION(" first ", " second ")"))
+		))
 
 (define gen-prolog-assembly
 	(lambda ()
@@ -127,6 +134,7 @@
 							  ((eq? type 'T_INT) (gen-make-literal-integer value label))
 							  ((eq? type 'T_PAIR) (gen-make-literal-pair label rest))
 							  ((eq? type 'T_VECTOR) (gen-make-literal-vector label rest))
+							  ((eq? type 'T_FRACTION) (gen-make-literal-fraction label rest))
 							  ;((eq? type 'T_INT) (gen-make-literal-integer value address))
 							  (else "DO_LATER "))
 

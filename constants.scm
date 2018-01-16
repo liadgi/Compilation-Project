@@ -20,7 +20,7 @@
 
 (define basic? 
 	(lambda (x)
-		(or (null? x) (number? x) (string? x) (boolean? x) (char? x) (symbol? x) (rational? x))))
+		(or (null? x) (integer? x) (string? x) (boolean? x) (char? x) (symbol? x))))
 
 (define all-consts
 	(lambda (lst)
@@ -28,7 +28,8 @@
 			((basic? (car lst)) (append `(,(car lst)) (all-consts (cdr lst))))
 			((list? (car lst)) (append (all-consts (car lst)) (parse-list-helper (car lst)) (all-consts (cdr lst)) ))
 			((vector? (car lst)) (append (all-consts (vector->list (car lst))) `(,(car lst)) (all-consts (cdr lst))))
-			((pair? (car lst)) (parse-pair-helper (car lst)) )	
+			((pair? (car lst)) (parse-pair-helper (car lst)) )
+			((rational? (car lst)) (append `(,(numerator (car lst))) `(,(denominator (car lst))) `(,(car lst))))
 				
 			)
 ))
@@ -59,6 +60,12 @@
 									  	(let ((refs (get-vector-refs (vector->list atom) '() table))
 									  		(label-counter (number->string counter)))
 									  		`(,atom ,counter T_VECTOR ,(concat-strings "sobVector" label-counter) ,@refs)))
+									  ((rational? atom)
+									  	(let ((numer (lookup-constant-get-label (numerator atom) table))
+									  		(denom (lookup-constant-get-label (denominator atom) table))
+									  		(label-counter (number->string counter)))
+									  		`(,atom ,counter T_FRACTION ,(concat-strings "sobFraction" label-counter) ,numer ,denom)
+									  	))
 
 									  (else (list atom counter "sobOTHER_TYPE" 'OTHER_TYPE))
 									)
