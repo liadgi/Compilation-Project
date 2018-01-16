@@ -37,44 +37,102 @@
 (define insert-all-to-table
 	(lambda (lst table counter)
 		(if (null? lst) table
-		  	(let* ((c (car lst))
+		  	(let* (
+		  			(c (car lst))
 		  	 		(elem (lookup-constant-in-table c table)))
 				(if (null? elem) 
-					(let ((first (lookup-constant-get-label (car c) table))
-						   (second (lookup-constant-get-label (cdr c) table))
-						   (label-counter (number->string counter)))
-						(insert-all-to-table (cdr lst) 
-							(append table (list `(,c ,counter T_PAIR ,(concat-strings "sobPair" label-counter) ,first ,second)))
-							(+ counter 1)))
+					(begin
+						(let ((first (lookup-constant-get-label (car c) table))
+							   (second (lookup-constant-get-label (cdr c) table))
+							   (label-counter (number->string counter)))
+							(insert-all-to-table (cdr lst) 
+								(append table (list `(,c ,counter T_PAIR ,(concat-strings "sobPair" label-counter) ,first ,second)))
+								(+ counter 1)))
+					)
 					(insert-all-to-table (cdr lst) table counter)
 					)
 				)
 		  	))
 )
 
+(define parse-list-helper 
+	(lambda (lst)
+		(cond ((null? lst) lst)
+			((number? lst) lst)
+			((list? lst) `(,@(parse-list-helper (cdr lst)) ,lst))
+
+			)
+))
+
+(define all-consts
+	(lambda (lst)
+		(cond ((null? lst) lst)
+			((number? (car lst)) (append `(,(car lst)) (all-consts (cdr lst))))
+			((list? (car lst)) (append (all-consts (car lst)) (parse-list-helper (car lst)) (all-consts (cdr lst)) ))
+			((vector? (car lst)) (append (all-consts (vector->list (car lst))) `(,(car lst)) (all-consts (cdr lst))))
+			)
+))
+
+(define create-records
+	(lambda (constants-list counter)
+			(letrec ((build 
+				(lambda (lst table counter)
+					(if (null? lst) table
+						(build (cdr lst) (append table 
+							(list 
+								(let* ((atom (car lst))
+									   (label-counter (number->string counter)))
+									(cond ;((boolean? atom) (list 'sob 'T_BOOL))
+									  ((integer? atom) (list atom counter 'T_INT (concat-strings "sobInt" label-counter)))
+									  ((char? atom) (list atom counter 'T_CHAR (concat-strings "sobChar" label-counter)))
+									  ((string? atom) (list atom counter 'T_STRING (concat-strings "sobString" label-counter)))
+									  ((number? atom) (list atom counter 'T_NUMBER (concat-strings "sobNumber" label-counter)))
+									  ((rational? atom) (list atom counter 'T_FRACTION (concat-strings "sobRational" label-counter)))
+									  ((pair? atom) 
+									  	(let ((first (lookup-constant-get-label (car atom) table))
+										      (second (lookup-constant-get-label (cdr atom) table))
+										   (label-counter (number->string counter)))
+											((list `(,atom ,counter T_PAIR ,(concat-strings "sobPair" label-counter) ,first ,second)))
+											))
+									  (else (list atom counter "sobOTHER_TYPE" 'OTHER_TYPE))
+									)
+							)))
+						(+ counter 1))
+						)))) 
+			(append (build (list->set (flatten constants-list)) (list 
+				(list (list) counter 'T_NIL "sobNil") 
+				(list void (+ counter 1) 'T_VOID "sobVoid") 
+				(list #t (+ counter 2) 'T_BOOL "sobTrue")
+				(list #f (+ counter 3) 'T_BOOL "sobFalse")) (+ counter 4)) )
+			)
+			
+		)
+	)
+
 
 (define build-constants-table
 	(lambda (exp)
 		 (let* ((consts (get-constants-list '() exp))
-		 		(table (init-atom-constants-in-table consts 0)))
-		 (letrec (
-		 	(insert-sublists-to-table 
-			 	(lambda (consts table address) 
-			 		(cond ((null? consts) table)
-			 			   ((list? (car consts))
-			 			   		(insert-sublists-to-table (cdr consts)
-			 			   			(insert-all-to-table 
-			 			   				(build-sublists-of-const-list (car consts) '())
-			 			   				table 
-			 			   				(+ (get-last-address table) 1)) 
-			 			   			(get-last-address table)))
-			 			   (else (insert-sublists-to-table (cdr consts) table (get-last-address table)))
-			 		))))
+		 		;(table (init-atom-constants-in-table consts 0))
+		 		(splitted-consts (reverse (list->set (reverse (all-consts consts)))))
+		 		)
+		 	(create-records splitted-consts 0)
+		 	;splitted-consts
 
-		 (insert-sublists-to-table consts table (get-last-address table))
-		 
-
-
+			#;(letrec (
+			 	(insert-sublists-to-table 
+				 	(lambda (consts table address)
+				 		(cond ((null? consts) table)
+				 			   ((list? (car consts))
+				 			   		(insert-sublists-to-table (cdr consts)
+				 			   			(insert-all-to-table 
+				 			   				(build-sublists-of-const-list (car consts) '())
+				 			   				table 
+				 			   				(+ (get-last-address table) 1)) 
+				 			   			(get-last-address table)))
+				 			   (else (insert-sublists-to-table (cdr consts) table (get-last-address table)))
+				 		))))
+			 (insert-sublists-to-table consts table (get-last-address table))
 		))
 	))
 
