@@ -88,7 +88,7 @@
 
 (define gen-prologue-assembly
 	(lambda ()
-		(print-line "%include \"macrodefs.inc\"")
+		(print-line "%include \"scheme.s\"")
 		(print-line "section .data")
 		(print-line "start_of_data:")
 		))
@@ -166,7 +166,6 @@
 	(lambda ()
 		(print-line "")
 		(print-line "section .bss")
-		(print-line "extern write_sob, write_sob_if_not_void")
 		(print-line "global main")
 ))
 
