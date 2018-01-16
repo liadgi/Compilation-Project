@@ -7,12 +7,29 @@
 			)
 ))
 
+(define parse-pair-helper 
+	(lambda (lst)
+		(cond ((basic? lst) lst)
+			((basic? (car lst)) (append `(,(car lst)) (all-consts `(,(cdr lst))) `(,lst)))
+			((vector? (car lst)) (append (all-consts `(,(car lst))) (all-consts `(,(cdr lst))) `(,lst)))
+				
+			((list? (car lst)) (append (all-consts (car lst)) (parse-list-helper (car lst)) `(,(parse-pair-helper (cdr lst))) `(,lst)))
+
+			)
+))
+
+(define basic? 
+	(lambda (x)
+		(or (null? x) (number? x) (string? x) (boolean? x) (char? x) (symbol? x) (rational? x))))
+
 (define all-consts
 	(lambda (lst)
-		(cond ((null? lst) lst)
-			((number? (car lst)) (append `(,(car lst)) (all-consts (cdr lst))))
+		(cond ((basic? lst) lst)
+			((basic? (car lst)) (append `(,(car lst)) (all-consts (cdr lst))))
 			((list? (car lst)) (append (all-consts (car lst)) (parse-list-helper (car lst)) (all-consts (cdr lst)) ))
 			((vector? (car lst)) (append (all-consts (vector->list (car lst))) `(,(car lst)) (all-consts (cdr lst))))
+			((pair? (car lst)) (parse-pair-helper (car lst)) )	
+				
 			)
 ))
 
@@ -38,6 +55,11 @@
 										   (label-counter (number->string counter)))
 											`(,atom ,counter T_PAIR ,(concat-strings "sobPair" label-counter) ,first ,second)
 											))
+									  ((vector? atom) 
+									  	(let ((refs (get-vector-refs (vector->list atom) '() table))
+									  		(label-counter (number->string counter)))
+									  		`(,atom ,counter T_VECTOR ,(concat-strings "sobVector" label-counter) ,@refs)))
+
 									  (else (list atom counter "sobOTHER_TYPE" 'OTHER_TYPE))
 									)
 							)))
@@ -108,4 +130,8 @@
 			)
 )
 
-
+(define get-vector-refs
+	(lambda (veclst lst table)
+			(if (null? veclst) lst
+				(get-vector-refs (cdr veclst) (append lst `(,(lookup-constant-get-label (car veclst) table))) table))
+))

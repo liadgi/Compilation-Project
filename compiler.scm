@@ -64,6 +64,20 @@
 		)
 		))
 
+(define gen-make-literal-vector
+	(lambda (label rest)
+			(let ((str (gen-vector-refs rest "")))
+					(print-line (concat-strings label ":"))
+					(print-tabbed-line (concat-strings "dq MAKE_LITERAL_VECTOR(" str ")"))
+				)
+		))
+
+(define gen-vector-refs
+	(lambda (rest str)
+			(if (null? (cdr rest)) (concat-strings str (car rest))
+			 (gen-vector-refs (cdr rest) (concat-strings str (car rest) ", ")))
+		))
+
 
 (define gen-prolog-assembly
 	(lambda ()
@@ -112,6 +126,7 @@
 							  ((eq? type 'T_VOID) (gen-make-literal-void))
 							  ((eq? type 'T_INT) (gen-make-literal-integer value label))
 							  ((eq? type 'T_PAIR) (gen-make-literal-pair label rest))
+							  ((eq? type 'T_VECTOR) (gen-make-literal-vector label rest))
 							  ;((eq? type 'T_INT) (gen-make-literal-integer value address))
 							  (else "DO_LATER "))
 
@@ -188,9 +203,9 @@
 			   (const-table (build-constants-table ast))
 			   )
 		;ast
-		const-table
+		;const-table
 		;void
-		#;(begin 
+		(begin 
 			(delete-file output-file) 
 			(set! output-port (open-output-file output-file))
 			(frame-gen (list const-table ast))
