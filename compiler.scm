@@ -88,7 +88,8 @@
 
 (define gen-prologue-assembly
 	(lambda ()
-		(print-line "%include \"macrodefs.inc\"")
+		
+		(print-line "%include \"scheme.s\"")
 		(print-line "section .data")
 		(print-line "start_of_data:")
 		))
@@ -166,7 +167,7 @@
 	(lambda ()
 		(print-line "")
 		(print-line "section .bss")
-		(print-line "extern write_sob, write_sob_if_not_void")
+		;(print-line "extern write_sob, write_sob_if_not_void")
 		(print-line "global main")
 ))
 
@@ -175,12 +176,13 @@
 		(print-line "")
 		(print-line "section .text")
 		(print-line "main:")
+		(print-line "nop")
 ))
 
 (define const-gen
 	(lambda (value const-table)
 		(let* ((const-label (lookup-constant-get-label value const-table)))
-			(print-tabbed-line (concat-strings "mov rax, [" const-label "]"))
+			(print-tabbed-line (concat-strings "mov rax, qword[" const-label "]"))
 			(print-tabbed-line (concat-strings "push qword [" const-label "]"))
 			(print-tabbed-line "call write_sob_if_not_void")
 			(print-tabbed-line "add rsp, 1*8")

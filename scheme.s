@@ -3,6 +3,11 @@
 ;;; 
 ;;; Programmer: Mayer Goldberg, 2018
 
+;;; marcodefs.inc
+;;; Support for the Scheme compiler
+;;; 
+;;; Programmer: Mayer Goldberg, 2018
+
 %define T_UNDEFINED 0
 %define T_VOID 1
 %define T_NIL 2
@@ -46,6 +51,8 @@
 %endmacro
 
 %define MAKE_LITERAL_PAIR(car, cdr) (((((car - start_of_data) << ((WORD_SIZE - TYPE_BITS) >> 1)) | (cdr - start_of_data)) << TYPE_BITS) | T_PAIR)
+
+%define MAKE_LITERAL_FRACTION(numer, denom) (((((numer - start_of_data) << ((WORD_SIZE - TYPE_BITS) >> 1)) | (denom - start_of_data)) << TYPE_BITS) | T_FRACTION)
 
 %macro CAR 1
 	DATA_UPPER %1
@@ -145,50 +152,7 @@
 %define SOB_TRUE MAKE_LITERAL(T_BOOL, 1)
 %define SOB_NIL MAKE_LITERAL(T_NIL, 0)
 
-section .data
-start_of_data:
-sobNil:
-	dq SOB_NIL
-sobInt3:
-	dq MAKE_LITERAL(T_INTEGER, 3)
-sobInt2:
-	dq MAKE_LITERAL(T_INTEGER, 2)
-sobInt1:
-	dq MAKE_LITERAL(T_INTEGER, 1)
-sobPair3N:
-	dq MAKE_LITERAL_PAIR(sobInt3, sobNil)
-sobPair23N:
-	dq MAKE_LITERAL_PAIR(sobInt2, sobPair3N)
-sobPair123N:
-	dq MAKE_LITERAL_PAIR(sobInt1, sobPair23N)
-sobPair12:
-	dq MAKE_LITERAL_PAIR(sobInt1, sobInt2)
-sobPairA:
-	dq MAKE_LITERAL_PAIR(sobPair12, sobNil)
-sobPairB:
-	dq MAKE_LITERAL_PAIR(sobPair123N, sobPairA)
-sobPairC:
-	dq MAKE_LITERAL_PAIR(sobInt3, sobPair12)
-sobPairNN:
-	dq MAKE_LITERAL_PAIR(sobNil, sobNil)
-sob1:
-	dq MAKE_LITERAL_PAIR(sobInt1, sobPairNN)
-sob2:
-	dq MAKE_LITERAL_PAIR(sobInt2, sob1)
-sob3:
-	dq MAKE_LITERAL_PAIR(sob2, sob2)
-sob4:
-	dq MAKE_LITERAL_PAIR(sobInt1, sobNil)
-sob5:
-	dq MAKE_LITERAL_PAIR(sob4, sobNil)
-sob6:
-	dq 0, 0 		; closure: wait for later!
-sob7:
-	MAKE_LITERAL_STRING "Mayer", CHAR_NEWLINE, "Goldberg", CHAR_TAB, "<=="
-sob8:
-	dq MAKE_LITERAL_PAIR(sob7, sobPairB)
-sobVec1:
-	MAKE_LITERAL_VECTOR sob8, sob7, sobInt1, sobInt2, sobInt3, sob4 
+
 
 section .bss
 
@@ -636,8 +600,27 @@ write_sob_fraction:
 	push rbp
 	mov rbp, rsp
 
+	mov rax, qword [rbp + 8 + 1*8]
+	CAR rax
+	push rax
+	call write_sob
+
+	mov rax, 0
+	mov rdi, .slash
+	call printf
+	
+	add rsp, 1*8
+	mov rax, qword [rbp + 8 + 1*8]
+	CDR rax
+	push rax
+	call write_sob
+
 	leave
 	ret
+
+section .data
+.slash:
+	db "/", 0
 
 write_sob_closure:
 	push rbp

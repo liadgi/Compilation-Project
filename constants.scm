@@ -47,8 +47,7 @@
 									  ((integer? atom) (list atom counter 'T_INT (concat-strings "sobInt" label-counter)))
 									  ((char? atom) (list atom counter 'T_CHAR (concat-strings "sobChar" label-counter)))
 									  ((string? atom) (list atom counter 'T_STRING (concat-strings "sobString" label-counter)))
-									  ((number? atom) (list atom counter 'T_NUMBER (concat-strings "sobNumber" label-counter)))
-									  ((rational? atom) (list atom counter 'T_FRACTION (concat-strings "sobRational" label-counter)))
+									  ;((number? atom) (list atom counter 'T_NUMBER (concat-strings "sobNumber" label-counter)))
 									  ((pair? atom) 
 									  	(let (
 									  		  (first (lookup-constant-get-label (car atom) table))
