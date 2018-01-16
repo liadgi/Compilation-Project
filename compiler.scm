@@ -81,10 +81,10 @@
 (define gen-make-literal-fraction
 	(lambda (label rest)
 		(let ((first (car rest))
-			(second (cadr rest)))
+			  (second (cadr rest)))
 			(print-line (concat-strings label ":"))
 			(print-tabbed-line (concat-strings "dq MAKE_LITERAL_FRACTION(" first ", " second ")"))
-		))
+		)))
 
 (define gen-prolog-assembly
 	(lambda ()
