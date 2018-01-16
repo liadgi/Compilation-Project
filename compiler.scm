@@ -188,8 +188,9 @@
 			   (const-table (build-constants-table ast))
 			   )
 		;ast
-		;const-table
-		(begin 
+		const-table
+		;void
+		#;(begin 
 			(delete-file output-file) 
 			(set! output-port (open-output-file output-file))
 			(frame-gen (list const-table ast))
