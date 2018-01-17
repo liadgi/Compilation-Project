@@ -68,7 +68,7 @@
 	(lambda (label rest)
 			(let ((str (gen-vector-refs rest "")))
 					(print-line (concat-strings label ":"))
-					(print-tabbed-line (concat-strings "dq MAKE_LITERAL_VECTOR(" str ")"))
+					(print-tabbed-line (concat-strings "MAKE_LITERAL_VECTOR " str ))
 				)
 		))
 
@@ -174,13 +174,12 @@
 		(print-line "")
 		(print-line "section .text")
 		(print-line "main:")
-		(print-line "nop")
 ))
 
 (define const-gen
 	(lambda (value const-table)
 		(let* ((const-label (lookup-constant-get-label value const-table)))
-			(print-tabbed-line (concat-strings "mov rax, qword[" const-label "]"))
+			(print-tabbed-line (concat-strings "mov rax, [" const-label "]"))
 			(print-tabbed-line (concat-strings "push qword [" const-label "]"))
 			(print-tabbed-line "call write_sob_if_not_void")
 			(print-tabbed-line "add rsp, 1*8")
