@@ -108,28 +108,38 @@
 				)
 		))
 
-(define gen-string
+#;(define gen-string
 	(lambda (str)
+		(let* ((lst (string->list str))
+			(elem (car lst))
+			(res 
+				(cond ((eq? elem #\space) "CHAR_SPACE, \"" )
+						((eq? elem #\tab) "CHAR_TAB, \"")
+						(else (concat-strings "\"" (string elem))))))
 		(letrec ((run (lambda (lst res)
-			(if (null? lst) 
-				res
+			(if (null? (cdr lst))
 				(let ((elem (car lst))) 
-					(cond ((eq? elem #\space) (run (cdr lst) (string-append res "\"" ", CHAR_SPACE, " "\"")))
+					(cond ((eq? elem #\space) (string-append res "\" , CHAR_SPACE"))
+						  ((eq? elem #\tab) (concat-strings res "\" , CHAR_TAB"))
+						  (else (concat-strings res (string elem) "\"")))
+				)
+				(let ((elem (car lst))) 
+					(cond ((eq? elem #\space) (run (cdr lst) (string-append res (string #\") ", CHAR_SPACE, " (string #\"))))
 						  ((eq? elem #\tab) (run (cdr lst) (concat-strings res ", CHAR_TAB, \"")))
 						  (else (run (cdr lst) (concat-strings res (string elem))))
-				)))
+				))
 			
-			))) 
-			(run (string->list str) "")
-		)
+			))))
+			(run (cdr lst) res)
+		))
 ))
+
+
 
 (define gen-make-literal-string
 	(lambda (value label)
-			(let ((params (gen-string value)))
 					(print-line (concat-strings label ":"))
-					(print-tabbed-line (concat-strings "MAKE_LITERAL_STRING " str ))
-				)
+					(print-tabbed-line (concat-strings "MAKE_LITERAL_STRING \"" value "\""))
 		))
 
 

@@ -28,7 +28,7 @@
 			((basic? (car lst)) (append `(,(car lst)) (all-consts (cdr lst))))
 			((list? (car lst)) (append (all-consts (car lst)) (parse-list-helper (car lst)) (all-consts (cdr lst)) ))
 			((vector? (car lst)) (append (all-consts (vector->list (car lst))) `(,(car lst)) (all-consts (cdr lst))))
-			((pair? (car lst)) (parse-pair-helper (car lst)) )
+			((pair? (car lst)) (append (parse-pair-helper (car lst)) (all-consts (cdr lst))))
 			((rational? (car lst)) (append `(,(numerator (car lst))) `(,(denominator (car lst))) `(,(car lst))))
 				
 			)
