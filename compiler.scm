@@ -57,7 +57,8 @@
 
 (define gen-epilogue-assembly
 	(lambda ()
-		(print-tabbed-line "ret")
+		(begin (gen-clean-fake-env)
+			(print-tabbed-line "ret"))
 ))
 
 (define gen-make-literal-nil
@@ -89,6 +90,13 @@
 		(let ((strVal (number->string value)))
 			(print-line (concat-strings label ":"))
 			(print-tabbed-line (concat-strings "dq MAKE_LITERAL(T_INTEGER, " strVal ")"))
+		)))
+
+(define gen-make-literal-char
+	(lambda (value label)
+		(let ((c (char->integer value)))
+			(print-line (concat-strings label ":"))
+			(print-tabbed-line (concat-strings "dq MAKE_LITERAL(T_CHAR, " (number->string c) ")"))
 		)))
 
 (define gen-make-literal-pair
@@ -174,6 +182,7 @@
 							  ((eq? type 'T_BOOL) (if value (gen-make-literal-true) (gen-make-literal-false)))
 							  ((eq? type 'T_VOID) (gen-make-literal-void))
 							  ((eq? type 'T_INT) (gen-make-literal-integer value label))
+							  ((eq? type 'T_CHAR) (gen-make-literal-char value label))
 							  ((eq? type 'T_PAIR) (gen-make-literal-pair label rest))
 							  ((eq? type 'T_VECTOR) (gen-make-literal-vector label rest))
 							  ((eq? type 'T_FRACTION) (gen-make-literal-fraction label rest))
@@ -205,11 +214,33 @@
 		(print-line "global main")
 ))
 
-(define gen-section-text
+(define gen-fake-env
+	(lambda ()
+			(print-line "mov rax, 0")
+			(print-line "push rax") ;fake n
+			(print-line "push SOB_NIL") ;fake env
+			(print-line "push rax") ;fake ret
+			(print-line "push rbp")
+			(print-line "mov rbp, rsp")
+		))
+
+(define gen-clean-fake-env
 	(lambda ()
 		(print-line "")
-		(print-line "section .text")
-		(print-line "main:")
+		(print-line "leave")
+		(print-line "pop rax") ;pop ret
+		(print-line "pop rbx") ;pop env
+		(print-line "pop rax") ;pop n
+
+		))
+
+(define gen-section-text
+	(lambda ()
+		(begin
+			(print-line "")
+			(print-line "section .text")
+			(print-line "main:")
+			(gen-fake-env))
 ))
 
 (define write_sob
@@ -228,28 +259,161 @@
 ))
 
 (define seq-gen ; e1,e2,...,en
-	(lambda (elems const-table)
+	(lambda (elems const-table major)
 		(if (null? (cdr elems))
-					(gen-code-for-ast (car elems) const-table) ; return en
+					(gen-code-for-ast (car elems) const-table major) ; return en
 					(begin
-						(gen-code-for-ast (car elems) const-table)
+						(gen-code-for-ast (car elems) const-table major)
 						(seq-gen (cdr elems) const-table)
 						)
 					)
 ))
 
+(define or-gen
+	(lambda (exprs jmpLabel constants-table major)
+		(if (null? (cdr exprs)) 
+				(begin
+					(gen-code-for-ast (car exprs) constants-table major)
+					(print-tabbed-line (concat-strings jmpLabel ":")))
+				(begin 
+					(gen-code-for-ast (car exprs) constants-table major)
+					(print-tabbed-line "cmp rax, SOB_FALSE")
+					(print-tabbed-line (concat-strings "jne " jmpLabel))
+					(or-gen (cdr exprs) jmpLabel constants-table))
+			)
+		))
+
+(define if-gen
+	(lambda (exprs ifLabel ifendLabel constants-table major)
+		(let ((test (car exprs))
+				(dit (cadr exprs))
+				(dif (caddr exprs)))
+			(begin 
+				(gen-code-for-ast test constants-table major)
+				(print-tabbed-line "cmp rax, SOB_FALSE")
+				(print-tabbed-line (concat-strings "je " ifLabel))
+				(gen-code-for-ast dit constants-table major)
+				(print-tabbed-line (concat-strings "jmp " ifendLabel))
+				(print-tabbed-line (concat-strings ifLabel ":"))
+				(gen-code-for-ast dif constants-table major)
+				(print-tabbed-line (concat-strings ifendLabel ":")))
+		)))
+
+#;(define lambda-simple-gen
+	(lambda (exprs constants-table major)
+		(let ((params (car exprs))
+				(body (cadr exprs))
+				(labeloop (loop-label))
+				(labelEndLoop (loop-end-label)))
+			(begin
+				;adding new-line to env
+				(print-tabbed-line (concat-strings "mov rax, " (number->string (* 8 (+ 1 major))))) ;mov rax, 8*(major+1)
+				(print-tabbed-line "push rax") 
+				(print-tabbed-line "call our_malloc")
+				(print-tabbed-line "mov rbx, rax") ;rbx <-- malloc(8*(major+1))
+				
+				(print-tabbed-line (concat-strings "mov rax, " (number->string major))) ;rax <-- major
+				(print-tabbed-line (concat-strings "mov rdi, 0" (number->string major))) ;mov rdi, 0
+				(print-tabbed-line (concat-strings labeloop ":")) ;Lloop_0:
+				(print-tabbed-line "cmp rdi, rax") ;cmp rdi, major
+				(print-tabbed-line (concat-strings "je " labelEndLoop)) ;je Lloopend_0
+				;rbx[i+1] = env[i]
+				(print-tabbed-line "mov rcx, ")
+				(print-tabbed-line "inc rdi")
+				(print-tabbed-line (concat-strings labelEndLoop ":")) ;Lloopend_0:
+
+			)	
+		)
+	))
+
+(define lambda-simple-gen
+	(lambda (exprs constants-table major)
+		(let ((params (car exprs))
+				(body (cadr exprs))
+				(labeloop (loop-label))
+				(labelEndLoop (loop-end-label))
+				(labeloop2 (loop-label))
+				(labelEndLoop2 (loop-end-label))
+				(labelLambda (lambda-label))
+				(labelEndLambda (lambda-end-label)))
+			(print-line (string-append "
+					;adding new-line to the new extended env
+					mov rax, " (number->string (* 8 (+ 1 major)))" ;mov rax, 8*(major+1)
+					push rax
+					call our_malloc
+					add rsp, 8
+					mov rbx, rax 			;rbx <-- malloc(8*(major+1))
+					;for loop - copy previous env to the new extended env
+					mov rax, " (number->string major) ";rax <-- major
+					mov rdi, 0
+					mov rcx, [rbp+8*2] ;rcx <-- env
+					"
+					labeloop":
+					cmp rdi, rax
+					je " labelEndLoop"
+						;rbx[i+1] = env[i]
+					mov rdx, [rcx+8*rdi]
+					inc rdi
+					mov [rbx+8*rdi], rdx
+					jmp " labeloop "
+					"labelEndLoop":
+
+					;creating env' -> the new extended env
+					mov rax, [rbp+8*3] 		;rax <-- n
+					shl rax, 3 				;rax <-- n*8
+					push rax
+					call our_malloc
+					add rsp, 8
+					mov rcx, rax 			;rcx <-- malloc(8*n)
+					mov rax, [rbp+8*3] 		;rax <-- n
+					mov rdi, 0
+					"
+					labeloop2":
+					mov rdx, [rbp+8*4]		;rdx <-- first param
+					cmp rdi, rax
+					je " labelEndLoop2"
+						;rcx[i] = param[i]
+					mov rdx, [rdx+8*rdi] 	;rdx <-- param[i]
+					mov[rcx+8*rdi], rdx 	;rcx[i] <-- param[i]
+					inc rdi
+					"labelEndLoop2":
+
+					mov [rbx], rcx
+					mov rax, 16
+					push rax
+					call our_malloc
+					add rsp, 8
+					MAKE_LITERAL_CLOSURE rax, rbx, " labelLambda"
+					mov rax, [rax]
+					jmp " labelEndLambda"
+					"labelLambda":
+					push rbp
+					mov rbp, rsp
+					"))
+			(gen-code-for-ast body constants-table (+ 1 major))
+			(print-line (string-append "
+					leave
+					ret
+					"labelEndLambda":
+				"))
+		)
+	))
+
 (define gen-code-for-ast
-	(lambda (ast constants-table)
+	(lambda (ast constants-table major)
 		(cond ((eq? (car ast) 'const) (const-gen (cadr ast) constants-table)) 
-			  ((eq? (car ast) 'seq) (seq-gen (cadr ast) constants-table)) 	  
-					  )
+			  ((eq? (car ast) 'seq) (seq-gen (cadr ast) constants-table major))
+			  ((eq? (car ast) 'or) (or-gen (cadr ast) (or-label) constants-table major))
+			  ((eq? (car ast) 'if3) (if-gen (cdr ast) (if-label) (if-end-label) constants-table major))
+			  ((eq? (car ast) 'lambda-simple) (lambda-simple-gen (cdr ast) constants-table major))
+		)
 ))
 
 (define gen-code-assembly
 	(lambda (asts constants-table)
 		(if (null? asts) void
 			(begin
-				(begin (gen-code-for-ast (car asts) constants-table)
+				(begin (gen-code-for-ast (car asts) constants-table 0)
 				 	   (write_sob))
 				(gen-code-assembly (cdr asts) constants-table)
 			)
@@ -313,3 +477,35 @@
 		)
 )
 
+;unique labels generator
+(define ^make_label
+  (lambda (perfix)
+    (let ((n 0))
+      (lambda ()
+        (set! n (+ n  1))
+        (format "~A_~A" perfix n))))
+    )
+
+(define or-label
+	(^make_label "Lor"))
+
+(define fvar-label
+    (^make_label "Lglob"))
+
+(define if-label
+    (^make_label "Lif"))
+
+(define if-end-label
+    (^make_label "Lifend"))
+
+(define loop-label
+	(^make_label "Lloop"))
+
+(define loop-end-label
+	(^make_label "Lloopend"))
+
+(define lambda-label
+	(^make_label "Llambda"))
+
+(define lambda-end-label
+	(^make_label "LlambdaEnd"))

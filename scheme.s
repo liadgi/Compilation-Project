@@ -71,9 +71,11 @@
 	push rax
 	push rbx
 	mov rax, %1
-	mov qword [rax], %2 - start_of_data
+        mov qword [rax], %2
+        sub qword [rax], start_of_data	
 	shl qword [rax], ((WORD_SIZE - TYPE_BITS) >> 1)
-	lea rbx, [rax + 8 - start_of_data]
+        lea rbx, [rax + 8]
+        sub rbx, start_of_data
 	or qword [rax], rbx
 	shl qword [rax], TYPE_BITS
 	or qword [rax], T_CLOSURE
@@ -156,7 +158,7 @@
 
 section .bss
 
-extern exit, printf, scanf
+extern exit, printf, scanf, malloc
 ;global main, write_sob, write_sob_if_not_void
 global write_sob, write_sob_if_not_void
 section .text
@@ -664,6 +666,7 @@ write_sob_if_not_void:
 	mov rax, 0
 	mov rdi, .newline
 	call printf
+
 	
 .continue:
 	ret
@@ -671,5 +674,19 @@ section .data
 .newline:
 	db CHAR_NEWLINE, 0
 	
-	
+our_malloc:
+	push rbp
+	mov rbp, rsp
+	push rbx
+	push rcx 
+	push rdx
+
+	mov rdi, qword [rbp +8 +1*8]
+	call malloc
+
+	pop rdx
+	pop rcx
+	pop rbx
+	leave
+	ret
 	
