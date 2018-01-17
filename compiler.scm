@@ -124,7 +124,7 @@
 		)
 ))
 
-(define gen-make-literal-string
+#;(define gen-make-literal-string
 	(lambda (value label)
 			(let ((params (gen-string value)))
 					(print-line (concat-strings label ":"))
@@ -168,7 +168,7 @@
 							  ((eq? type 'T_PAIR) (gen-make-literal-pair label rest))
 							  ((eq? type 'T_VECTOR) (gen-make-literal-vector label rest))
 							  ((eq? type 'T_FRACTION) (gen-make-literal-fraction label rest))
-							  ((eq? type 'T_STRING) (gen-make-literal-string value label))
+							  ;((eq? type 'T_STRING) (gen-make-literal-string value label))
 							  (else "DO_LATER "))
 
 						)
@@ -203,19 +203,36 @@
 		(print-line "main:")
 ))
 
+(define write_sob
+	(lambda ()
+			(print-tabbed-line (concat-strings "push rax"))
+			(print-tabbed-line "call write_sob_if_not_void")
+			(print-tabbed-line "add rsp, 1*8")
+))
+
 (define const-gen
 	(lambda (value const-table)
 		(let* ((const-label (lookup-constant-get-label value const-table)))
 			(print-tabbed-line (concat-strings "mov rax, [" const-label "]"))
-			(print-tabbed-line (concat-strings "push qword [" const-label "]"))
-			(print-tabbed-line "call write_sob_if_not_void")
-			(print-tabbed-line "add rsp, 1*8")
+			
 			)
+))
+
+(define seq-gen ; e1,e2,...,en
+	(lambda (elems const-table)
+		(if (null? (cdr elems))
+					(gen-code-for-ast (car elems) const-table) ; return en
+					(begin
+						(gen-code-for-ast (car elems) const-table)
+						(seq-gen (cdr elems) const-table)
+						)
+					)
 ))
 
 (define gen-code-for-ast
 	(lambda (ast constants-table)
 		(cond ((eq? (car ast) 'const) (const-gen (cadr ast) constants-table)) 
+			  ((eq? (car ast) 'seq) (seq-gen (cadr ast) constants-table)) 	  
 					  )
 ))
 
@@ -223,7 +240,8 @@
 	(lambda (asts constants-table)
 		(if (null? asts) void
 			(begin
-				(gen-code-for-ast (car asts) constants-table)
+				(begin (gen-code-for-ast (car asts) constants-table)
+				 	   (write_sob))
 				(gen-code-assembly (cdr asts) constants-table)
 			)
 		)
