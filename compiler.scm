@@ -48,44 +48,6 @@
 		(display (concat-strings line "\n") output-port)
 		))
 
-(define gen-make-literal-integer
-	(lambda (value label)
-		(let ((strVal (number->string value)))
-			(print-line (concat-strings label ":"))
-			(print-tabbed-line (concat-strings "dq MAKE_LITERAL(T_INTEGER, " strVal ")"))
-		)))
-
-(define gen-make-literal-pair
-	(lambda (label rest)
-		(let ((first-label (car rest))
-			  (second-label (cadr rest)))
-			(print-line (concat-strings label ":"))
-			(print-tabbed-line (concat-strings "dq MAKE_LITERAL_PAIR(" first-label ", " second-label ")"))
-		)
-		))
-
-(define gen-make-literal-vector
-	(lambda (label rest)
-			(let ((str (gen-vector-refs rest "")))
-					(print-line (concat-strings label ":"))
-					(print-tabbed-line (concat-strings "MAKE_LITERAL_VECTOR " str ))
-				)
-		))
-
-(define gen-vector-refs
-	(lambda (rest str)
-			(if (null? (cdr rest)) (concat-strings str (car rest))
-			 (gen-vector-refs (cdr rest) (concat-strings str (car rest) ", ")))
-		))
-
-(define gen-make-literal-fraction
-	(lambda (label rest)
-		(let ((first (car rest))
-			  (second (cadr rest)))
-			(print-line (concat-strings label ":"))
-			(print-tabbed-line (concat-strings "dq MAKE_LITERAL_FRACTION(" first ", " second ")"))
-		)))
-
 (define gen-prologue-assembly
 	(lambda ()
 		(print-line "%include \"scheme.s\"")
@@ -122,6 +84,71 @@
 		(print-tabbed-line "dq SOB_VOID")
 		))
 
+(define gen-make-literal-integer
+	(lambda (value label)
+		(let ((strVal (number->string value)))
+			(print-line (concat-strings label ":"))
+			(print-tabbed-line (concat-strings "dq MAKE_LITERAL(T_INTEGER, " strVal ")"))
+		)))
+
+(define gen-make-literal-pair
+	(lambda (label rest)
+		(let ((first-label (car rest))
+			  (second-label (cadr rest)))
+			(print-line (concat-strings label ":"))
+			(print-tabbed-line (concat-strings "dq MAKE_LITERAL_PAIR(" first-label ", " second-label ")"))
+		)
+		))
+
+(define gen-make-literal-vector
+	(lambda (label rest)
+			(let ((str (gen-vector-refs rest "")))
+					(print-line (concat-strings label ":"))
+					(print-tabbed-line (concat-strings "MAKE_LITERAL_VECTOR " str ))
+				)
+		))
+
+(define gen-string
+	(lambda (str)
+		(letrec ((run (lambda (lst res)
+			(if (null? lst) 
+				res
+				(let ((elem (car lst))) 
+					(cond ((eq? elem #\space) (run (cdr lst) (string-append res "\"" ", CHAR_SPACE, " "\"")))
+						  ((eq? elem #\tab) (run (cdr lst) (concat-strings res ", CHAR_TAB, \"")))
+						  (else (run (cdr lst) (concat-strings res (string elem))))
+				)))
+			
+			))) 
+			(run (string->list str) "")
+		)
+))
+
+(define gen-make-literal-string
+	(lambda (value label)
+			(let ((params (gen-string value)))
+					(print-line (concat-strings label ":"))
+					(print-tabbed-line (concat-strings "MAKE_LITERAL_STRING " str ))
+				)
+		))
+
+
+(define gen-vector-refs
+	(lambda (rest str)
+			(if (null? (cdr rest)) (concat-strings str (car rest))
+			 (gen-vector-refs (cdr rest) (concat-strings str (car rest) ", ")))
+		))
+
+(define gen-make-literal-fraction
+	(lambda (label rest)
+		(let ((first (car rest))
+			  (second (cadr rest)))
+			(print-line (concat-strings label ":"))
+			(print-tabbed-line (concat-strings "dq MAKE_LITERAL_FRACTION(" first ", " second ")"))
+		)))
+
+
+
 (define gen-constants-assembly
 	(lambda (table)
 		(letrec ((gen (lambda (table)
@@ -141,7 +168,7 @@
 							  ((eq? type 'T_PAIR) (gen-make-literal-pair label rest))
 							  ((eq? type 'T_VECTOR) (gen-make-literal-vector label rest))
 							  ((eq? type 'T_FRACTION) (gen-make-literal-fraction label rest))
-							  ;((eq? type 'T_INT) (gen-make-literal-integer value address))
+							  ((eq? type 'T_STRING) (gen-make-literal-string value label))
 							  (else "DO_LATER "))
 
 						)
