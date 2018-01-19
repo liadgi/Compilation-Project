@@ -58,6 +58,7 @@
 (define gen-epilogue-assembly
 	(lambda ()
 		(begin (gen-clean-fake-env)
+			(print-tabbed-line "L_error_cannot_apply_non_clos: ")
 			(print-tabbed-line "ret"))
 ))
 
@@ -399,6 +400,47 @@
 		)
 	))
 
+(define applic-gen
+	(lambda (applic-body constants-table major)
+		(let* 	((proc (car applic-body))
+				(params (reverse (cadr applic-body)))
+				(n (length params)))
+			(print-line (string-append "
+				;pushing NIL
+				push SOB_NIL
+				;pushing arguments"))
+			(map (lambda (param) 
+				(gen-code-for-ast param constants-table major) 
+				(print-line "push rax"))
+				params)
+			(print-line (string-append "
+				;push n
+				push " (number->string n)))
+			(gen-code-for-ast proc constants-table major)
+			(print-line (string-append "
+				mov rbx, rax 	;rbx <-- closure(?)
+				TYPE rbx
+				cmp rbx, T_CLOSURE
+				jne L_error_cannot_apply_non_clos
+				mov rbx, rax
+				CLOSURE_ENV rbx
+				push rbx
+				CLOSURE_CODE rax
+				call rax
+				add rsp, " (number->string (* (+ 3 n) 8))
+				)))
+	))
+
+(define pvar-gen
+	(lambda (pvar-body constants-table major)
+		(let ((minor (cadr pvar-body)))
+			(print-line (string-append "
+				mov rax, [rbp +" (number->string (* 8 (+ 4 minor))) "]
+			"))
+
+		)
+	))
+
 (define gen-code-for-ast
 	(lambda (ast constants-table major)
 		(cond ((eq? (car ast) 'const) (const-gen (cadr ast) constants-table)) 
@@ -406,6 +448,8 @@
 			  ((eq? (car ast) 'or) (or-gen (cadr ast) (or-label) constants-table major))
 			  ((eq? (car ast) 'if3) (if-gen (cdr ast) (if-label) (if-end-label) constants-table major))
 			  ((eq? (car ast) 'lambda-simple) (lambda-simple-gen (cdr ast) constants-table major))
+			  ((eq? (car ast) 'applic) (applic-gen (cdr ast) constants-table major))
+			  ((eq? (car ast) 'pvar) (pvar-gen (cdr ast) constants-table major))
 		)
 ))
 
