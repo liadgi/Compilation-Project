@@ -464,6 +464,22 @@
 		)
 	))
 
+(define set-bvar-gen
+	(lambda (set-bvar-body constants-table major)
+		(let* ((major-minor (cddar set-bvar-body))
+				(major (car major-minor))
+				(minor (cadr major-minor))
+				(value (cadr set-bvar-body)))
+			(code-gen value constants-table major)
+			(print-line (string-append "
+				mov rbx, qword[rbp+2*8]
+				mov rbx, qword[rbx +" (number->string (* 8 major)) "]
+				mov qword[rbx +" (number->string (* 8 minor)) "], rax
+				mov rax, SOB_VOID
+			"))
+		)
+	))
+
 (define code-gen
 	(lambda (ast constants-table major)
 		(cond ((eq? (car ast) 'const) (const-gen (cadr ast) constants-table)) 
@@ -475,6 +491,7 @@
 			  ((eq? (car ast) 'pvar) (pvar-gen (cdr ast)))
 			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'pvar)) (set-pvar-gen (cdr ast) constants-table major))
 			  ((eq? (car ast) 'bvar) (bvar-gen (cdr ast)))
+			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'bvar)) (set-bvar-gen (cdr ast) constants-table major))
 		)
 ))
 
