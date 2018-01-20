@@ -262,10 +262,10 @@
 (define seq-gen ; e1,e2,...,en
 	(lambda (elems const-table major)
 		(if (null? (cdr elems))
-					(gen-code-for-ast (car elems) const-table major) ; return en
+					(code-gen (car elems) const-table major) ; return en
 					(begin
-						(gen-code-for-ast (car elems) const-table major)
-						(seq-gen (cdr elems) const-table)
+						(code-gen (car elems) const-table major)
+						(seq-gen (cdr elems) const-table major)
 						)
 					)
 ))
@@ -274,10 +274,10 @@
 	(lambda (exprs jmpLabel constants-table major)
 		(if (null? (cdr exprs)) 
 				(begin
-					(gen-code-for-ast (car exprs) constants-table major)
+					(code-gen (car exprs) constants-table major)
 					(print-tabbed-line (concat-strings jmpLabel ":")))
 				(begin 
-					(gen-code-for-ast (car exprs) constants-table major)
+					(code-gen (car exprs) constants-table major)
 					(print-tabbed-line "cmp rax, SOB_FALSE")
 					(print-tabbed-line (concat-strings "jne " jmpLabel))
 					(or-gen (cdr exprs) jmpLabel constants-table))
@@ -290,13 +290,13 @@
 				(dit (cadr exprs))
 				(dif (caddr exprs)))
 			(begin 
-				(gen-code-for-ast test constants-table major)
+				(code-gen test constants-table major)
 				(print-tabbed-line "cmp rax, SOB_FALSE")
 				(print-tabbed-line (concat-strings "je " ifLabel))
-				(gen-code-for-ast dit constants-table major)
+				(code-gen dit constants-table major)
 				(print-tabbed-line (concat-strings "jmp " ifendLabel))
 				(print-tabbed-line (concat-strings ifLabel ":"))
-				(gen-code-for-ast dif constants-table major)
+				(code-gen dif constants-table major)
 				(print-tabbed-line (concat-strings ifendLabel ":")))
 		)))
 
@@ -370,11 +370,10 @@
 					mov rdi, 0
 					"
 					labeloop2":
-					mov rdx, [rbp+8*4]		;rdx <-- first param
 					cmp rdi, rax
 					je " labelEndLoop2"
 						;rcx[i] = param[i]
-					mov rdx, [rdx+8*rdi] 	;rdx <-- param[i]
+					mov rdx, [rbp+8*(rdi+4)] 	;rdx <-- param[i]
 					mov[rcx+8*rdi], rdx 	;rcx[i] <-- param[i]
 					inc rdi
 					"labelEndLoop2":
@@ -391,7 +390,7 @@
 					push rbp
 					mov rbp, rsp
 					"))
-			(gen-code-for-ast body constants-table (+ 1 major))
+			(code-gen body constants-table (+ 1 major))
 			(print-line (string-append "
 					leave
 					ret
@@ -410,14 +409,15 @@
 				push SOB_NIL
 				;pushing arguments"))
 			(map (lambda (param) 
-				(gen-code-for-ast param constants-table major) 
+				(code-gen param constants-table major) 
 				(print-line "push rax"))
 				params)
 			(print-line (string-append "
 				;push n
 				push " (number->string n)))
-			(gen-code-for-ast proc constants-table major)
+			(code-gen proc constants-table major)
 			(print-line (string-append "
+				;push env
 				mov rbx, rax 	;rbx <-- closure(?)
 				TYPE rbx
 				cmp rbx, T_CLOSURE
@@ -432,16 +432,39 @@
 	))
 
 (define pvar-gen
-	(lambda (pvar-body constants-table major)
+	(lambda (pvar-body)
 		(let ((minor (cadr pvar-body)))
 			(print-line (string-append "
 				mov rax, [rbp +" (number->string (* 8 (+ 4 minor))) "]
 			"))
-
 		)
 	))
 
-(define gen-code-for-ast
+(define set-pvar-gen
+	(lambda (set-pvar-body constants-table major)
+		(let ((minor (caddar set-pvar-body))
+				(value (cadr set-pvar-body)))
+			(code-gen value constants-table major)
+			(print-line (string-append "
+				mov qword[rbp +" (number->string (* 8 (+ 4 minor))) "], rax
+				mov rax, SOB_VOID
+			"))
+		)
+	))
+
+(define bvar-gen
+	(lambda (bvar-body)
+		(let ((major (cadr bvar-body))
+				(minor (caddr bvar-body)))
+			(print-line (string-append "
+				mov rax, qword[rbp +" (number->string (* 8 2)) "] 	;env
+				mov rax, qword[rax +" (number->string (* 8 major)) "] 	;env[major]
+				mov rax, qword[rax +" (number->string (* 8 minor)) "]	;env[major][minor]
+			"))
+		)
+	))
+
+(define code-gen
 	(lambda (ast constants-table major)
 		(cond ((eq? (car ast) 'const) (const-gen (cadr ast) constants-table)) 
 			  ((eq? (car ast) 'seq) (seq-gen (cadr ast) constants-table major))
@@ -449,7 +472,9 @@
 			  ((eq? (car ast) 'if3) (if-gen (cdr ast) (if-label) (if-end-label) constants-table major))
 			  ((eq? (car ast) 'lambda-simple) (lambda-simple-gen (cdr ast) constants-table major))
 			  ((eq? (car ast) 'applic) (applic-gen (cdr ast) constants-table major))
-			  ((eq? (car ast) 'pvar) (pvar-gen (cdr ast) constants-table major))
+			  ((eq? (car ast) 'pvar) (pvar-gen (cdr ast)))
+			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'pvar)) (set-pvar-gen (cdr ast) constants-table major))
+			  ((eq? (car ast) 'bvar) (bvar-gen (cdr ast)))
 		)
 ))
 
@@ -457,7 +482,7 @@
 	(lambda (asts constants-table)
 		(if (null? asts) void
 			(begin
-				(begin (gen-code-for-ast (car asts) constants-table 0)
+				(begin (code-gen (car asts) constants-table 0)
 				 	   (write_sob))
 				(gen-code-assembly (cdr asts) constants-table)
 			)
@@ -553,3 +578,6 @@
 
 (define lambda-end-label
 	(^make_label "LlambdaEnd"))
+
+(define debug-label
+	(^make_label "Ldebug"))
