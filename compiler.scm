@@ -2,6 +2,7 @@
 (load "tag-parser.scm")
 (load "semantic-analyzer.scm")
 (load "constants.scm")
+(load "fvars.scm")
 
 (define pipeline
 	(lambda (s)
@@ -260,51 +261,51 @@
 ))
 
 (define seq-gen ; e1,e2,...,en
-	(lambda (elems const-table major)
+	(lambda (elems const-table major fvars-table)
 		(if (null? (cdr elems))
-					(code-gen (car elems) const-table major) ; return en
+					(code-gen (car elems) const-table major fvars-table) ; return en
 					(begin
-						(code-gen (car elems) const-table major)
-						(seq-gen (cdr elems) const-table major)
+						(code-gen (car elems) const-table major fvars-table)
+						(seq-gen (cdr elems) const-table major fvars-table)
 						)
 					)
 ))
 
 (define or-gen
-	(lambda (exprs jmpLabel constants-table major)
+	(lambda (exprs jmpLabel constants-table major fvars-table)
 		(if (null? (cdr exprs)) 
 				(begin
-					(code-gen (car exprs) constants-table major)
+					(code-gen (car exprs) constants-table major fvars-table)
 					(print-tabbed-line (concat-strings jmpLabel ":")))
 				(begin 
-					(code-gen (car exprs) constants-table major)
+					(code-gen (car exprs) constants-table majo fvars-tabler)
 					(print-tabbed-line "mov rbx, [rax]")
 					(print-tabbed-line "cmp rbx, SOB_FALSE")
 					(print-tabbed-line (concat-strings "jne " jmpLabel))
-					(or-gen (cdr exprs) jmpLabel constants-table major))
+					(or-gen (cdr exprs) jmpLabel constants-table major fvars-table))
 			)
 		))
 
 (define if-gen
-	(lambda (exprs ifLabel ifendLabel constants-table major)
+	(lambda (exprs ifLabel ifendLabel constants-table major fvars-table)
 		(let ((test (car exprs))
 				(dit (cadr exprs))
 				(dif (caddr exprs)))
 			(begin 
-				(code-gen test constants-table major)
+				(code-gen test constants-table major fvars-table)
 				(print-tabbed-line "mov rax, qword[rax]")
 				(print-tabbed-line "cmp rax, SOB_FALSE")
 				(print-tabbed-line (concat-strings "je " ifLabel))
-				(code-gen dit constants-table major)
+				(code-gen dit constants-table major fvars-table)
 				(print-tabbed-line (concat-strings "jmp " ifendLabel))
 				(print-tabbed-line (concat-strings ifLabel ":"))
-				(code-gen dif constants-table major)
+				(code-gen dif constants-table major fvars-table)
 				(print-tabbed-line (concat-strings ifendLabel ":")))
 		)))
 
 
 (define lambda-simple-gen
-	(lambda (exprs constants-table major)
+	(lambda (exprs constants-table major fvars-table)
 		(let ((params (car exprs))
 				(body (cadr exprs))
 				(labeloop (loop-label))
@@ -366,7 +367,7 @@
 					push rbp
 					mov rbp, rsp
 					"))
-			(code-gen body constants-table (+ 1 major))
+			(code-gen body constants-table (+ 1 major) fvars-table)
 			(print-line (string-append "
 					leave
 					ret
@@ -376,7 +377,7 @@
 	))
 
 (define applic-gen
-	(lambda (applic-body constants-table major)
+	(lambda (applic-body constants-table major fvars-table)
 		(let* 	((proc (car applic-body))
 				(params (reverse (cadr applic-body)))
 				(n (length params)))
@@ -385,13 +386,13 @@
 				push SOB_NIL
 				;pushing arguments"))
 			(map (lambda (param) 
-				(code-gen param constants-table major) 
+				(code-gen param constants-table major fvars-table) 
 				(print-line "push rax"))
 				params)
 			(print-line (string-append "
 				;push n
 				push " (number->string n)))
-			(code-gen proc constants-table major)
+			(code-gen proc constants-table major fvars-table)
 			(print-line (string-append "
 				;push env
 				mov rax, [rax]
@@ -418,10 +419,10 @@
 	))
 
 (define set-pvar-gen
-	(lambda (set-pvar-body constants-table major)
+	(lambda (set-pvar-body constants-table major fvars-table)
 		(let ((minor (caddar set-pvar-body))
 				(value (cadr set-pvar-body)))
-			(code-gen value constants-table major)
+			(code-gen value constants-table major fvars-table)
 			(print-line (string-append "
 				mov qword[rbp +" (number->string (* 8 (+ 4 minor))) "], rax
 				mov rax, sobVoid
@@ -442,12 +443,12 @@
 	))
 
 (define set-bvar-gen
-	(lambda (set-bvar-body constants-table major)
+	(lambda (set-bvar-body constants-table major fvars-table)
 		(let* ((major-minor (cddar set-bvar-body))
 				(major (car major-minor))
 				(minor (cadr major-minor))
 				(value (cadr set-bvar-body)))
-			(code-gen value constants-table major)
+			(code-gen value constants-table major fvars-table)
 			(print-line (string-append "
 				mov rbx, qword[rbp+2*8]
 				mov rbx, qword[rbx +" (number->string (* 8 major)) "]
@@ -457,28 +458,46 @@
 		)
 	))
 
+(define fvar-gen
+	(lambda (fvar fvars)
+		(let ((label (lookup-fvar-get-label fvar fvars)))
+			(print-tabbed-line (concat-strings "mov rax, " label ))
+			)
+))
+
 (define code-gen
-	(lambda (ast constants-table major)
+	(lambda (ast constants-table major fvars-table)
 		(cond ((eq? (car ast) 'const) (const-gen (cadr ast) constants-table)) 
-			  ((eq? (car ast) 'seq) (seq-gen (cadr ast) constants-table major))
-			  ((eq? (car ast) 'or) (or-gen (cadr ast) (or-label) constants-table major))
-			  ((eq? (car ast) 'if3) (if-gen (cdr ast) (if-label) (if-end-label) constants-table major))
-			  ((eq? (car ast) 'lambda-simple) (lambda-simple-gen (cdr ast) constants-table major))
-			  ((eq? (car ast) 'applic) (applic-gen (cdr ast) constants-table major))
+			  ((eq? (car ast) 'seq) (seq-gen (cadr ast) constants-table major fvars-table))
+			  ((eq? (car ast) 'or) (or-gen (cadr ast) (or-label) constants-table major fvars-table))
+			  ((eq? (car ast) 'if3) (if-gen (cdr ast) (if-label) (if-end-label) constants-table major fvars-table))
+			  ((eq? (car ast) 'lambda-simple) (lambda-simple-gen (cdr ast) constants-table major fvars-table))
+			  ((eq? (car ast) 'applic) (applic-gen (cdr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'pvar) (pvar-gen (cdr ast)))
-			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'pvar)) (set-pvar-gen (cdr ast) constants-table major))
+			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'pvar)) (set-pvar-gen (cdr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'bvar) (bvar-gen (cdr ast)))
-			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'bvar)) (set-bvar-gen (cdr ast) constants-table major))
+			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'bvar)) (set-bvar-gen (cdr ast) constants-table major fvars-table))
+			  ((eq? (car ast) 'fvar) (fvar-gen (cadr ast) fvars-table))
 		)
 ))
 
+(define gen-fvars-assembly
+	(lambda (fvars)
+			(map (lambda (fvar) 
+				(print-line (string-append (cadr fvar) ":
+					dq SOB_UNDEFINED")))
+				fvars)
+	))
+
+
+
 (define gen-code-assembly
-	(lambda (asts constants-table)
+	(lambda (asts constants-table fvars)
 		(if (null? asts) void
 			(begin
-				(begin (code-gen (car asts) constants-table 0)
+				(begin (code-gen (car asts) constants-table 0 fvars)
 				 	   (write_sob))
-				(gen-code-assembly (cdr asts) constants-table)
+				(gen-code-assembly (cdr asts) constants-table fvars)
 			)
 		)
 		))
@@ -487,12 +506,14 @@
 (define frame-gen
 	(lambda (structure)
 		(let* ((constants-table (car structure))
+				(fvars (cadr structure))
 
 				(prologue-assembly (gen-prologue-assembly))
 				(constants-assembly (gen-constants-assembly constants-table))
+				(fvars-assembly (gen-fvars-assembly fvars))
 				(section-bss (gen-section-bss))
 				(section-text (gen-section-text))
-				(code-assembly (gen-code-assembly (cadr structure) constants-table))
+				(code-assembly (gen-code-assembly (caddr structure) constants-table fvars))
 				(epilogue-assembly (gen-epilogue-assembly))
 				)
 			constants-assembly
@@ -506,14 +527,16 @@
 	(lambda (file output-file)
 		(let* ((asts (pipeline (file->list file)))
 			   (const-table (build-constants-table asts))
+			   (fvars-table (label-fvars '() (get-fvars-list '() asts)))
 			   )
 		;asts
+		;fvars-table
 		;const-table
 		;void
 		(begin 
 			(delete-file output-file) 
 			(set! output-port (open-output-file output-file))
-			(frame-gen (list const-table asts))
+			(frame-gen (list const-table fvars-table asts))
 			;(code-gen (list const-table symbol-table freevars ast))
 			(close-output-port output-port))
 				))
@@ -573,3 +596,6 @@
 
 (define debug-label
 	(^make_label "Ldebug"))
+
+(define glob-label
+	(^make_label "Lglob"))
