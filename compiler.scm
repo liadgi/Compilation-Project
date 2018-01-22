@@ -255,7 +255,6 @@
 	(lambda (value const-table)
 		(let* ((const-label (lookup-constant-get-label value const-table)))
 			(print-tabbed-line (concat-strings "mov rax, [" const-label "]"))
-			
 			)
 ))
 
@@ -300,32 +299,6 @@
 				(print-tabbed-line (concat-strings ifendLabel ":")))
 		)))
 
-#;(define lambda-simple-gen
-	(lambda (exprs constants-table major)
-		(let ((params (car exprs))
-				(body (cadr exprs))
-				(labeloop (loop-label))
-				(labelEndLoop (loop-end-label)))
-			(begin
-				;adding new-line to env
-				(print-tabbed-line (concat-strings "mov rax, " (number->string (* 8 (+ 1 major))))) ;mov rax, 8*(major+1)
-				(print-tabbed-line "push rax") 
-				(print-tabbed-line "call our_malloc")
-				(print-tabbed-line "mov rbx, rax") ;rbx <-- malloc(8*(major+1))
-				
-				(print-tabbed-line (concat-strings "mov rax, " (number->string major))) ;rax <-- major
-				(print-tabbed-line (concat-strings "mov rdi, 0" (number->string major))) ;mov rdi, 0
-				(print-tabbed-line (concat-strings labeloop ":")) ;Lloop_0:
-				(print-tabbed-line "cmp rdi, rax") ;cmp rdi, major
-				(print-tabbed-line (concat-strings "je " labelEndLoop)) ;je Lloopend_0
-				;rbx[i+1] = env[i]
-				(print-tabbed-line "mov rcx, ")
-				(print-tabbed-line "inc rdi")
-				(print-tabbed-line (concat-strings labelEndLoop ":")) ;Lloopend_0:
-
-			)	
-		)
-	))
 
 (define lambda-simple-gen
 	(lambda (exprs constants-table major)
