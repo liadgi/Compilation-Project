@@ -246,7 +246,8 @@
 
 (define write_sob
 	(lambda ()
-			(print-tabbed-line (concat-strings "push rax"))
+			;(print-tabbed-line (concat-strings "mov rax, [rax]"))
+			(print-tabbed-line (concat-strings "push qword[rax]"))
 			(print-tabbed-line "call write_sob_if_not_void")
 			(print-tabbed-line "add rsp, 1*8")
 ))
@@ -254,7 +255,7 @@
 (define const-gen
 	(lambda (value const-table)
 		(let* ((const-label (lookup-constant-get-label value const-table)))
-			(print-tabbed-line (concat-strings "mov rax, [" const-label "]"))
+			(print-tabbed-line (concat-strings "mov rax, " const-label ))
 			)
 ))
 
@@ -277,9 +278,10 @@
 					(print-tabbed-line (concat-strings jmpLabel ":")))
 				(begin 
 					(code-gen (car exprs) constants-table major)
-					(print-tabbed-line "cmp rax, SOB_FALSE")
+					(print-tabbed-line "mov rbx, [rax]")
+					(print-tabbed-line "cmp rbx, SOB_FALSE")
 					(print-tabbed-line (concat-strings "jne " jmpLabel))
-					(or-gen (cdr exprs) jmpLabel constants-table))
+					(or-gen (cdr exprs) jmpLabel constants-table major))
 			)
 		))
 
@@ -290,6 +292,7 @@
 				(dif (caddr exprs)))
 			(begin 
 				(code-gen test constants-table major)
+				(print-tabbed-line "mov rax, qword[rax]")
 				(print-tabbed-line "cmp rax, SOB_FALSE")
 				(print-tabbed-line (concat-strings "je " ifLabel))
 				(code-gen dit constants-table major)
@@ -357,7 +360,7 @@
 					call our_malloc
 					add rsp, 8
 					MAKE_LITERAL_CLOSURE rax, rbx, " labelLambda"
-					mov rax, [rax]
+					;mov rax, [rax]
 					jmp " labelEndLambda"
 					"labelLambda":
 					push rbp
@@ -391,6 +394,7 @@
 			(code-gen proc constants-table major)
 			(print-line (string-append "
 				;push env
+				mov rax, [rax]
 				mov rbx, rax 	;rbx <-- closure(?)
 				TYPE rbx
 				cmp rbx, T_CLOSURE
@@ -420,7 +424,7 @@
 			(code-gen value constants-table major)
 			(print-line (string-append "
 				mov qword[rbp +" (number->string (* 8 (+ 4 minor))) "], rax
-				mov rax, SOB_VOID
+				mov rax, sobVoid
 			"))
 		)
 	))
@@ -448,7 +452,7 @@
 				mov rbx, qword[rbp+2*8]
 				mov rbx, qword[rbx +" (number->string (* 8 major)) "]
 				mov qword[rbx +" (number->string (* 8 minor)) "], rax
-				mov rax, SOB_VOID
+				mov rax, sobVoid
 			"))
 		)
 	))
@@ -479,7 +483,6 @@
 		)
 		))
 
-;(define code-gen
 
 (define frame-gen
 	(lambda (structure)
@@ -526,7 +529,6 @@
 			'()
 			s)
 ))
-
 
 
 (define write-to-target-file
