@@ -218,12 +218,14 @@
 
 (define gen-fake-env
 	(lambda ()
-			(print-line "mov rax, 0")
-			(print-line "push rax") ;fake n
-			(print-line "push SOB_NIL") ;fake env
-			(print-line "push rax") ;fake ret
-			(print-line "push rbp")
-			(print-line "mov rbp, rsp")
+			(print-tabbed-line "; starting fake env generation")
+			(print-tabbed-line "mov rax, 0")
+			(print-tabbed-line "push rax") ;fake n
+			(print-tabbed-line "push SOB_NIL") ;fake env
+			(print-tabbed-line "push rax") ;fake ret
+			(print-tabbed-line "push rbp")
+			(print-tabbed-line "mov rbp, rsp")
+			(print-tabbed-line "; ending fake env generation")
 		))
 
 (define gen-clean-fake-env
@@ -461,9 +463,19 @@
 (define fvar-gen
 	(lambda (fvar fvars)
 		(let ((label (lookup-fvar-get-label fvar fvars)))
-			(print-tabbed-line (concat-strings "mov rax, " label ))
+			(print-tabbed-line (concat-strings "mov rax, [" label "] ;fvar-gen"))
 			)
 ))
+
+(define set-fvar-gen
+	(lambda (set-fvar-body constants-table major fvars-table)
+		(let* ((fvar-name (cadar set-fvar-body))
+			   (value (cadr set-fvar-body))
+			   (label (lookup-fvar-get-label fvar-name fvars-table)))
+			(code-gen value constants-table major fvars-table)
+			(print-tabbed-line (string-append "mov [" label "], rax ; set-fvar" ))
+		)
+	))
 
 (define code-gen
 	(lambda (ast constants-table major fvars-table)
@@ -478,6 +490,7 @@
 			  ((eq? (car ast) 'bvar) (bvar-gen (cdr ast)))
 			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'bvar)) (set-bvar-gen (cdr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'fvar) (fvar-gen (cadr ast) fvars-table))
+			  ((and (or (eq? (car ast) 'set) (eq? (car ast) 'define)) (eq? (caadr ast) 'fvar)) (set-fvar-gen (cdr ast) constants-table major fvars-table))
 		)
 ))
 
@@ -496,7 +509,12 @@
 		(if (null? asts) void
 			(begin
 				(begin (code-gen (car asts) constants-table 0 fvars)
-				 	   (write_sob))
+				 	   (if
+				 	   (not 
+				 	   	(or 
+				 	   		(eq? (caar asts) 'define) 
+				 	   		(eq? (caar asts) 'set)))
+				 	   	(write_sob)))
 				(gen-code-assembly (cdr asts) constants-table fvars)
 			)
 		)
