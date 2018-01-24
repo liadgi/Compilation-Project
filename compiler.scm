@@ -372,7 +372,13 @@
 			(code-gen body constants-table (+ 1 major) fvars-table)
 			(print-line (string-append "
 					leave
-					ret
+					mov rbx, [rbp+8*3] 		;rbx <-- n
+					pop rcx					;rcx <-- ret
+					add rbx, 3
+					shl rbx, 3
+					add rsp, rbx 			;clean stack
+					push rcx
+					ret 
 					"labelEndLambda":
 				"))
 		)
@@ -407,7 +413,7 @@
 				push rbx
 				CLOSURE_CODE rax
 				call rax
-				add rsp, " (number->string (* (+ 3 n) 8))
+				;add rsp,  (number->string (* (+ 3 n) 8))"
 				)))
 	))
 
