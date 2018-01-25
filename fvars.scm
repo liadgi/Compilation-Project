@@ -1,6 +1,8 @@
 
+(define init-fvars-list (list 'cons 'list))
+
 (define get-fvars-list
-	(lambda (var-list exp) 
+	(lambda (exp) 
 		(letrec ((run
 			(lambda (var-list exp) 
 				(if (not (pair? exp)) '()
@@ -10,7 +12,7 @@
 				)
 			)
 			))
-		(list->set (run var-list exp))
+		(list->set (run init-fvars-list exp))
 		)
 	)
 )

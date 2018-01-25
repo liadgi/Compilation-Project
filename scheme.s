@@ -31,6 +31,19 @@
 %define TYPE_BITS 4
 %define WORD_SIZE 64
 
+%define gigabyte(n) (n << 30)
+%macro SAFE_MALLOC 1
+	push rbx
+	push rcx
+	mov rbx, malloc_pointer
+	mov rax, qword [rbx]
+	mov rcx, qword[rbx]
+	add rcx, %1
+	mov qword[rbx], rcx
+	pop rcx
+	pop rbx
+%endmacro
+
 %define MAKE_LITERAL(type, lit) ((lit << TYPE_BITS) | type)
 
 %macro TYPE 1
@@ -51,6 +64,15 @@
 %endmacro
 
 %define MAKE_LITERAL_PAIR(car, cdr) (((((car - start_of_data) << ((WORD_SIZE - TYPE_BITS) >> 1)) | (cdr - start_of_data)) << TYPE_BITS) | T_PAIR)
+
+%macro MAKE_PAIR 2
+	sub %1, start_of_data
+	shl %1, 34
+	sub %2, start_of_data
+	shl %2, 4
+	or %1, %2
+	or %1, T_PAIR
+%endmacro
 
 %define MAKE_LITERAL_FRACTION(numer, denom) (((((numer - start_of_data) << ((WORD_SIZE - TYPE_BITS) >> 1)) | (denom - start_of_data)) << TYPE_BITS) | T_FRACTION)
 
@@ -157,6 +179,10 @@
 
 
 section .bss
+malloc_pointer:
+	resq 1
+start_of_memory:
+	resb gigabyte(1)
 
 extern exit, printf, scanf, malloc
 ;global main, write_sob, write_sob_if_not_void

@@ -3,17 +3,18 @@
 (load "semantic-analyzer.scm")
 (load "constants.scm")
 (load "fvars.scm")
+(load "functions.scm")
 
 (define pipeline
 	(lambda (s)
 		((star <sexpr>) s
 			(lambda (m r)
 				(map (lambda (e)
-					(annotate-tc
+					;(annotate-tc
 						(pe->lex-pe
 							(box-set
 								(remove-applic-lambda-nil
-									(parse e))))))
+									(parse e)))));)
 					m))
 			(lambda (f) 'fail))))
 
@@ -243,8 +244,10 @@
 		(begin
 			(print-line "")
 			(print-line "section .text")
-			(print-line "main:")
-			(gen-fake-env))
+			(print-line "main:
+				mov rax, malloc_pointer
+				mov qword [rax], start_of_memory")
+			)
 ))
 
 (define write_sob
@@ -318,10 +321,12 @@
 				(labelEndLambda (lambda-end-label)))
 			(print-line (string-append "
 					;adding new-line to the new extended env
-					mov rax, " (number->string (* 8 (+ 1 major)))" ;mov rax, 8*(major+1)
-					push rax
-					call our_malloc
-					add rsp, 8
+					SAFE_MALLOC " (number->string (* 8 (+ 1 major)))
+					;mov rax, " (number->string (* 8 (+ 1 major))) ;mov rax, 8*(major+1)"
+					;push rax
+					;call our_malloc
+					"
+					;add rsp, 8
 					mov rbx, rax 			;rbx <-- malloc(8*(major+1))
 					;for loop - copy previous env to the new extended env
 					mov rax, " (number->string major) ";rax <-- major
@@ -339,11 +344,12 @@
 					"labelEndLoop":
 
 					;creating env' -> the new extended env
-					mov rax, [rbp+8*3] 		;rax <-- n
-					shl rax, 3 				;rax <-- n*8
-					push rax
-					call our_malloc
-					add rsp, 8
+					mov rdx, [rbp+8*3] 		;rdx <-- n
+					shl rdx, 3 				;rdx <-- n*8
+					SAFE_MALLOC rdx
+					;push rax
+					;call our_malloc
+					;add rsp, 8
 					mov rcx, rax 			;rcx <-- malloc(8*n)
 					mov rax, [rbp+8*3] 		;rax <-- n
 					mov rdi, 0
@@ -355,13 +361,15 @@
 					mov rdx, [rbp+8*(rdi+4)] 	;rdx <-- param[i]
 					mov[rcx+8*rdi], rdx 	;rcx[i] <-- param[i]
 					inc rdi
+					jmp " labeloop2 "
 					"labelEndLoop2":
 
 					mov [rbx], rcx
-					mov rax, 16
-					push rax
-					call our_malloc
-					add rsp, 8
+					;mov rax, 16
+					;push rax
+					;call our_malloc
+					SAFE_MALLOC 16
+					;add rsp, 8
 					MAKE_LITERAL_CLOSURE rax, rbx, " labelLambda"
 					;mov rax, [rax]
 					jmp " labelEndLambda"
@@ -371,8 +379,8 @@
 					"))
 			(code-gen body constants-table (+ 1 major) fvars-table)
 			(print-line (string-append "
-					leave
 					mov rbx, [rbp+8*3] 		;rbx <-- n
+					leave
 					pop rcx					;rcx <-- ret
 					add rbx, 3
 					shl rbx, 3
@@ -384,6 +392,12 @@
 		)
 	))
 
+(define my-map
+	(lambda (proc lst)
+		(if (null? lst) lst
+			(cons (proc (car lst)) (my-map proc (cdr lst))))
+		))
+
 (define applic-gen
 	(lambda (applic-body constants-table major fvars-table)
 		(let* 	((proc (car applic-body))
@@ -393,7 +407,7 @@
 				;pushing NIL
 				push SOB_NIL
 				;pushing arguments"))
-			(map (lambda (param) 
+			(my-map (lambda (param)
 				(code-gen param constants-table major fvars-table) 
 				(print-line "push rax"))
 				params)
@@ -479,9 +493,136 @@
 			   (value (cadr set-fvar-body))
 			   (label (lookup-fvar-get-label fvar-name fvars-table)))
 			(code-gen value constants-table major fvars-table)
-			(print-tabbed-line (string-append "mov [" label "], rax ; set-fvar" ))
+			(print-tabbed-line (string-append "mov [" label "], rax ; set-fvar
+				mov rax, sobVoid" ))
 		)
 	))
+
+
+(define lambda-opt-gen
+	(lambda (exprs constants-table major fvars-table)
+		(let ((params (car exprs))
+				(body (caddr exprs))
+				(labeloop (loop-label))
+				(labelEndLoop (loop-end-label))
+				(labeloop2 (loop-label))
+				(labelEndLoop2 (loop-end-label))
+				(labelLambda (lambda-label))
+				(labelEndLambda (lambda-end-label))
+				(labelLoopFixStack (loop-fix-stack-label))
+				(labelLoopFixStackEnd (loop-fix-stack-end-label)))
+			(print-line (string-append "
+					;adding new-line to the new extended env
+					SAFE_MALLOC " (number->string (* 8 (+ 1 major)))
+					"
+					mov rbx, rax 			;rbx <-- malloc(8*(major+1))
+					;for loop - copy previous env to the new extended env
+					mov rax, " (number->string major) ";rax <-- major
+					mov rdi, 0
+					mov rcx, [rbp+8*2] ;rcx <-- env
+					"
+					labeloop":
+					cmp rdi, rax
+					je " labelEndLoop"
+						;rbx[i+1] = env[i]
+					mov rdx, [rcx+8*rdi]
+					inc rdi
+					mov [rbx+8*rdi], rdx
+					jmp " labeloop "
+					"labelEndLoop":
+
+					;creating env' -> the new extended env
+					mov rdx, [rbp+8*3] 		;rdx <-- n
+					shl rdx, 3 				;rdx <-- n*8
+					SAFE_MALLOC rdx
+					mov rcx, rax 			;rcx <-- malloc(8*n)
+					mov rax, [rbp+8*3] 		;rax <-- n
+					mov rdi, 0
+					"
+					labeloop2":
+					cmp rdi, rax
+					je " labelEndLoop2"
+						;rcx[i] = param[i]
+					mov rdx, [rbp+8*(rdi+4)] 	;rdx <-- param[i]
+					mov[rcx+8*rdi], rdx 	;rcx[i] <-- param[i]
+					inc rdi
+					jmp " labeloop2 "
+					"labelEndLoop2":
+
+					mov [rbx], rcx
+					SAFE_MALLOC 16
+					MAKE_LITERAL_CLOSURE rax, rbx, " labelLambda"
+					jmp " labelEndLambda"
+					"labelLambda":
+					push rbp
+					mov rbp, rsp
+
+
+
+					;FIXING STACK
+					mov r8, sobNil
+					mov rdi, [rbp+8*3]					;rdi <-- n
+					
+					mov r9, "(number->string (+ (length params) 1))" 	;t9 <-- |params|
+					"
+ 					labelLoopFixStack":
+ 					cmp rdi, r9
+ 					jl "labelLoopFixStackEnd "
+ 					mov r10, [rbp+8*(rdi+3)] 			;param[rdi]
+ 					"(debug-label)":
+ 					MAKE_PAIR r10, r8
+ 					SAFE_MALLOC 8
+ 					mov [rax], r10
+ 					mov r8, rax 
+ 					dec rdi
+ 					jmp "labelLoopFixStack "
+ 					"
+ 					labelLoopFixStackEnd":
+ 					mov [rbp+8*(r9+3)], r8
+					"))
+
+			(code-gen body constants-table (+ 1 major) fvars-table)
+			(print-line (string-append "
+					mov rbx, [rbp+8*3] 		;rbx <-- n
+					leave
+					pop rcx					;rcx <-- ret
+					add rbx, 3
+					shl rbx, 3
+					add rsp, rbx 			;clean stack
+					push rcx
+					ret 
+					"labelEndLambda":
+				"))
+		)
+	))
+
+(define box-gen
+	(lambda (box-body constants-table major fvars-table)
+		(code-gen box-body constants-table major fvars-table)
+		(print-line (string-append "
+			mov rbx, rax
+			SAFE_MALLOC 8
+			mov qword[rax], rbx
+			"))
+))
+
+(define box-get-gen
+	(lambda (box-body constants-table major fvars-table)
+		(code-gen box-body constants-table major fvars-table)
+		(print-line  "mov rax, [rax]	;unbox")
+))
+
+(define box-set-gen
+	(lambda (box-set-body constants-table major fvars-table)
+		(let ((var (car box-set-body))
+				(value (cadr box-set-body)))
+		(code-gen value constants-table major fvars-table)
+		(print-line  "mov rbx, rax")
+		(code-gen var constants-table major fvars-table)
+		(print-line  "mov [rax], rbx")
+		(print-line  "mov rax, sobVoid")
+)))
+
 
 (define code-gen
 	(lambda (ast constants-table major fvars-table)
@@ -497,6 +638,10 @@
 			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'bvar)) (set-bvar-gen (cdr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'fvar) (fvar-gen (cadr ast) fvars-table))
 			  ((and (or (eq? (car ast) 'set) (eq? (car ast) 'define)) (eq? (caadr ast) 'fvar)) (set-fvar-gen (cdr ast) constants-table major fvars-table))
+			  ((eq? (car ast) 'lambda-opt) (lambda-opt-gen (cdr ast) constants-table major fvars-table))
+			  ((eq? (car ast) 'box) (box-gen (cadr ast) constants-table major fvars-table))
+			  ((eq? (car ast) 'box-get) (box-get-gen (cadr ast) constants-table major fvars-table))
+			  ((eq? (car ast) 'box-set) (box-set-gen (cdr ast) constants-table major fvars-table))
 		)
 ))
 
@@ -537,6 +682,8 @@
 				(fvars-assembly (gen-fvars-assembly fvars))
 				(section-bss (gen-section-bss))
 				(section-text (gen-section-text))
+				(funcs (init-functions fvars))
+				(fake-env (gen-fake-env))
 				(code-assembly (gen-code-assembly (caddr structure) constants-table fvars))
 				(epilogue-assembly (gen-epilogue-assembly))
 				)
@@ -549,9 +696,9 @@
 
 (define compile-scheme-file
 	(lambda (file output-file)
-		(let* ((asts (pipeline (file->list file)))
+		(let* ((asts (append scheme-expressions (pipeline (file->list file))))
 			   (const-table (build-constants-table asts))
-			   (fvars-table (label-fvars '() (get-fvars-list '() asts)))
+			   (fvars-table (label-fvars '() (get-fvars-list asts)))
 			   )
 		;asts
 		;fvars-table
@@ -623,3 +770,15 @@
 
 (define glob-label
 	(^make_label "Lglob"))
+
+(define cons-label
+	(^make_label "LconsStart"))
+
+(define cons-end-label
+	(^make_label "LconsEnd"))
+
+(define loop-fix-stack-label
+	(^make_label "LloopFixStack"))
+
+(define loop-fix-stack-end-label
+	(^make_label "LloopFixStackEnd"))
