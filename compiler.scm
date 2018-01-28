@@ -10,11 +10,11 @@
 		((star <sexpr>) s
 			(lambda (m r)
 				(map (lambda (e)
-					;(annotate-tc
+					(annotate-tc
 						(pe->lex-pe
 							(box-set
 								(remove-applic-lambda-nil
-									(parse e)))));)
+									(parse e))))))
 					m))
 			(lambda (f) 'fail))))
 
@@ -283,7 +283,7 @@
 					(code-gen (car exprs) constants-table major fvars-table)
 					(print-tabbed-line (concat-strings jmpLabel ":")))
 				(begin 
-					(code-gen (car exprs) constants-table majo fvars-tabler)
+					(code-gen (car exprs) constants-table major fvars-table)
 					(print-tabbed-line "mov rbx, [rax]")
 					(print-tabbed-line "cmp rbx, SOB_FALSE")
 					(print-tabbed-line (concat-strings "jne " jmpLabel))
@@ -623,6 +623,69 @@
 		(print-line  "mov rax, sobVoid")
 )))
 
+(define tc-applic-gen
+	(lambda (tc-applic-body constants-table major fvars-table)
+		(let* 	((proc (car tc-applic-body))
+				(params (reverse (cadr tc-applic-body)))
+				(m (length params))
+				(tc-applic-loop (tc-loop-label))
+				(tc-applic-loop-end (tc-loop-end-label)))
+			(print-line (string-append "
+				;pushing NIL
+				push SOB_NIL
+				;pushing arguments"))
+			(my-map (lambda (param)
+				(code-gen param constants-table major fvars-table) 
+				(print-line "push rax"))
+				params)
+			(print-line (string-append "
+				;push m
+				push " (number->string m)))
+			(code-gen proc constants-table major fvars-table)
+			(print-line (string-append "
+				;push env
+				mov rax, [rax]
+				mov rbx, rax 	;rbx <-- closure(?)
+				TYPE rbx
+				cmp rbx, T_CLOSURE
+				jne L_error_cannot_apply_non_clos
+				mov rbx, rax
+				CLOSURE_ENV rbx
+				push rbx
+				CLOSURE_CODE rax
+
+				; TC-APPLIC
+				push qword[rbp+8]		;push old ret
+				mov r8, rbp 			;save current rbp
+				mov rbp, [rbp] 			;rbp <-- previous rbp
+				mov r11, [r8+3*8]		;r11 <-- previous n = n
+				mov r9, r11
+				add r9, 4
+				shl r9, 3				;r9 <-- (n+4)*8
+				add r9, r8				;r9 <-- r8 + (n+4)*8
+				mov r10, r9				;previous NIL 
+				sub r8, 8				;current NIL
+				;loop - replacing stack
+
+				mov rdi, 0
+				" tc-applic-loop":
+				cmp rdi, " (number->string (+ m 4))"
+				je " tc-applic-loop-end"
+				mov r9, [r8]
+				mov [r10], r9
+				sub r8, 8
+				sub r10, 8
+				inc rdi
+				jmp "tc-applic-loop"
+				"tc-applic-loop-end":
+
+				add r11, 5				;r11 <-- 5+n
+				shl r11, 3				;r11 <-- 8*(5+n)
+				add rsp, r11
+				jmp rax"
+				)))
+
+	))
 
 (define code-gen
 	(lambda (ast constants-table major fvars-table)
@@ -642,6 +705,7 @@
 			  ((eq? (car ast) 'box) (box-gen (cadr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'box-get) (box-get-gen (cadr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'box-set) (box-set-gen (cdr ast) constants-table major fvars-table))
+			  ((eq? (car ast) 'tc-applic) (tc-applic-gen (cdr ast) constants-table major fvars-table))
 		)
 ))
 
@@ -782,3 +846,9 @@
 
 (define loop-fix-stack-end-label
 	(^make_label "LloopFixStackEnd"))
+
+(define tc-loop-label
+	(^make_label "Ltc_loop"))
+
+(define tc-loop-end-label
+	(^make_label "Ltc_loop_end"))
