@@ -1,7 +1,8 @@
-(define parse-list-helper 
+(define parse-list-helper
 	(lambda (lst)
 		(cond ((null? lst) lst)
 			((number? lst) lst)
+			;((basic? lst) lst)
 			((list? lst) `(,@(parse-list-helper (cdr lst)) ,lst))
 
 			)
@@ -14,7 +15,7 @@
 			((vector? (car lst)) (append (all-consts `(,(car lst))) (all-consts `(,(cdr lst))) `(,lst)))
 				
 			((list? (car lst)) (append (all-consts (car lst)) (parse-list-helper (car lst)) `(,(parse-pair-helper (cdr lst))) `(,lst)))
-
+			;((rational? (car lst)) (append (all-consts (numerator (car lst))) `(,(parse-list-helper (denominator (car lst)))) `(,(car lst))))
 			)
 ))
 
@@ -29,7 +30,7 @@
 			((list? (car lst)) (append (all-consts (car lst)) (parse-list-helper (car lst)) (all-consts (cdr lst)) ))
 			((vector? (car lst)) (append (all-consts (vector->list (car lst))) `(,(car lst)) (all-consts (cdr lst))))
 			((pair? (car lst)) (append (parse-pair-helper (car lst)) (all-consts (cdr lst))))
-			((rational? (car lst)) (append `(,(numerator (car lst))) `(,(denominator (car lst))) `(,(car lst))))
+			((rational? (car lst)) (append `(,(numerator (car lst))) `(,(denominator (car lst))) `(,(car lst)) (all-consts (cdr lst))))
 				
 			)
 ))
@@ -39,37 +40,39 @@
 			(letrec ((build 
 				(lambda (lst table counter)
 					(if (null? lst) table
-						(build (cdr lst) (append table 
-							(list 
-								(let* ((atom (car lst))
-									   (label-counter (number->string counter)))
-									(cond ;((boolean? atom) (list 'sob 'T_BOOL))
-									  ((integer? atom) (list atom counter 'T_INT (string-append "sobInt" (number->string atom) "_" label-counter)))
-									  ((char? atom) (list atom counter 'T_CHAR (string-append "sobChar" label-counter)))
-									  ((string? atom) (list atom counter 'T_STRING (string-append "sobString" label-counter)))
-									  ;((number? atom) (list atom counter 'T_NUMBER (string-append "sobNumber" label-counter)))
-									  ((pair? atom) 
-									  	(let (
-									  		  (first (lookup-constant-get-label (car atom) table))
-										      (second (lookup-constant-get-label (cdr atom) table))
+						(if (or (boolean? (car lst)) (null? (car lst)))
+							(build (cdr lst) table counter)
+							(build (cdr lst) (append table 
+								(list 
+									(let* ((atom (car lst))
 										   (label-counter (number->string counter)))
-											`(,atom ,counter T_PAIR ,(string-append "sobPair" label-counter) ,first ,second)
-											))
-									  ((vector? atom) 
-									  	(let ((refs (get-vector-refs (vector->list atom) '() table))
-									  		(label-counter (number->string counter)))
-									  		`(,atom ,counter T_VECTOR ,(string-append "sobVector" label-counter) ,@refs)))
-									  ((rational? atom)
-									  	(let ((numer (lookup-constant-get-label (numerator atom) table))
-									  		(denom (lookup-constant-get-label (denominator atom) table))
-									  		(label-counter (number->string counter)))
-									  		`(,atom ,counter T_FRACTION ,(string-append "sobFraction" label-counter) ,numer ,denom)
-									  	))
-
-									  (else (list atom counter "sobOTHER_TYPE" 'OTHER_TYPE))
-									)
-							)))
-						(+ counter 1))
+										(cond ;((boolean? atom) (list 'sob 'T_BOOL))
+										  ((integer? atom) (list atom counter 'T_INT (string-append "sobInt" (number->string atom) "_" label-counter)))
+										  ((char? atom) (list atom counter 'T_CHAR (string-append "sobChar" label-counter)))
+										  ((string? atom) (list atom counter 'T_STRING (string-append "sobString" label-counter)))
+										  ;((number? atom) (list atom counter 'T_NUMBER (string-append "sobNumber" label-counter)))
+										  ((pair? atom) 
+										  	(let (
+										  		  (first (lookup-constant-get-label (car atom) table))
+											      (second (lookup-constant-get-label (cdr atom) table))
+											   (label-counter (number->string counter)))
+												`(,atom ,counter T_PAIR ,(string-append "sobPair" label-counter) ,first ,second)
+												))
+										  ((vector? atom) 
+										  	(let ((refs (get-vector-refs (vector->list atom) '() table))
+										  		(label-counter (number->string counter)))
+										  		`(,atom ,counter T_VECTOR ,(string-append "sobVector" label-counter) ,@refs)))
+										  ((rational? atom)
+										  	(let ((numer (lookup-constant-get-label (numerator atom) table))
+										  		(denom (lookup-constant-get-label (denominator atom) table))
+										  		(label-counter (number->string counter)))
+										  		`(,atom ,counter T_FRACTION ,(string-append "sobFraction" label-counter) ,numer ,denom)
+										  	))
+										  (else (display-error "create-records: value" atom " does not fit any type"))
+										)
+								)))
+							(+ counter 1))
+							)
 						))))
 			(append (build (list->set constants-list) (list 
 				(list (list) counter 'T_NIL "sobNil") 
@@ -85,7 +88,9 @@
 (define build-constants-table
 	(lambda (exp)
 		 (let* ((consts (get-constants-list '() exp))
-		 		(splitted-consts (reverse (list->set (reverse (all-consts consts)))))
+		 		;(dbg (display-newline consts))
+		 		(dismantled-consts (all-consts consts))
+		 		(splitted-consts (reverse (list->set (reverse dismantled-consts))))
 		 		)
 		 	(create-records splitted-consts 0))
 	))
@@ -116,7 +121,7 @@
 
 (define lookup-constant-in-table
 	(lambda (constant table)
-		(if (null? table) '()
+		(if (null? table) ((display-newline "could not find constant") exit)
 			(if (equal? (caar table) constant) 
 				(car table) 
 				(lookup-constant-in-table constant (cdr table))))

@@ -51,7 +51,23 @@
 	(lambda ()
 		(begin (gen-clean-fake-env)
 			(print-tabbed-line "L_error_cannot_apply_non_clos: ")
-			(print-tabbed-line "ret"))
+			(print-tabbed-line "ret")
+			(print-tabbed-line "
+				
+				exit_compiler:
+
+				mov rax, 0
+				mov rdi, .error_msg
+				call printf
+
+				mov rax, 1
+				mov rbx, 0
+				int 0x80
+
+				;section .data
+				.error_msg:
+					db \"error occured.\", 0
+				"))
 ))
 
 (define gen-make-literal-nil
@@ -164,7 +180,8 @@
 		(print-line ";start gen-constants-assembly")
 		(letrec ((gen (lambda (table)
 			(if (not (null? table))
-				(begin 
+				(begin
+					;(display-newline (car table))
 					(let* ((first-pair (car table))
 						   (value (car first-pair))
 						   (address (cadr first-pair))
@@ -181,7 +198,7 @@
 							  ((eq? type 'T_VECTOR) (gen-make-literal-vector label rest))
 							  ((eq? type 'T_FRACTION) (gen-make-literal-fraction label rest))
 							  ((eq? type 'T_STRING) (gen-make-literal-string value label))
-							  (else "DO_LATER "))
+							  (else (display-error "gen-constants-assembly: type " type " does not exist")))
 
 						)
 					(gen (cdr table))
@@ -809,8 +826,8 @@
 			  ((eq? (car ast) 'box) (box-gen (cadr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'box-get) (box-get-gen (cadr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'box-set) (box-set-gen (cdr ast) constants-table major fvars-table))
-			  ((eq? (car ast) 'tc-applic) (tc-applic-gen (cdr ast) constants-table major fvars-table))
-			  ;((eq? (car ast) 'tc-applic) (applic-gen (cdr ast) constants-table major fvars-table))
+			  ;((eq? (car ast) 'tc-applic) (tc-applic-gen (cdr ast) constants-table major fvars-table))
+			  ((eq? (car ast) 'tc-applic) (applic-gen (cdr ast) constants-table major fvars-table))
 		)
 ))
 

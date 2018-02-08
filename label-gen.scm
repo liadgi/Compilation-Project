@@ -37,12 +37,6 @@
 (define glob-label
 	(^make_label "Lglob"))
 
-(define cons-label
-	(^make_label "LconsStart"))
-
-(define cons-end-label
-	(^make_label "LconsEnd"))
-
 (define loop-fix-stack-label
 	(^make_label "LloopFixStack"))
 
