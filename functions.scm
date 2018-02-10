@@ -6,7 +6,10 @@
 	'cdr ; returns new object
 	'boolean? 'char? 'integer? 'null? 'pair? 'procedure? 'rational? 'string? 'symbol? 'vector? 
 	; just without 'number?
-	'shave
+	;'shave
+	'=
+	'<
+	'>
 	'not
 	'char->integer
 	'integer->char ; check this out
@@ -27,7 +30,9 @@
 		(func-frame fvars "cdr" impl-cdr)
 		(gen-predicates fvars)
 		(func-frame fvars "rational?" impl-rational?)
-		(func-frame fvars "shave" impl-=)
+		(func-frame fvars "=" impl-=)
+		(func-frame fvars "<" impl-<)
+		(func-frame fvars ">" impl->)
 		(func-frame fvars "not" impl-not)
 		(func-frame fvars "char->integer" impl-char->integer)
 		(func-frame fvars "integer->char" impl-integer->char)
@@ -70,8 +75,16 @@
 
 (define clean-name
 	(lambda (x)
-		(=->equals (dash->underline (remove-exclamation-mark (arrow->to x))))
+		(<->less (>->greater (=->equals (dash->underline (remove-exclamation-mark (arrow->to x))))))
 		))
+
+(define <->less
+	(lambda (x)
+		(string-replace x "<" "less")))
+
+(define >->greater
+	(lambda (x)
+		(string-replace x ">" "greater")))
 
 (define =->equals
 	(lambda (x)
@@ -202,6 +215,8 @@
 	mov rbx, [rbp+8*3] ; n
 	cmp rbx, 1
 	jg shave_multiple_params
+	cmp rbx, 0
+	je exit_compiler
 	mov rbx, [rbp+8*4] ; first param 	
 	mov rbx, [rbx]
 	TYPE rbx
@@ -218,8 +233,17 @@
 
 	shave_multiple_params:
 
-	mov rbx, [rbp+8*4] ; first param 	
-	mov rcx, [rbp+8*5] ; second param
+
+	mov r10, [rbp+8*3] ; n
+	dec r10
+	mov rdi, -1
+	shave_compare:
+	inc rdi
+	cmp rdi, r10 
+	je endShave
+
+	mov rbx, [rbp+8*(rdi+4)] 
+	mov rcx, [rbp+8*(rdi+5)]
 
 	mov rbx, [rbx]
 	mov rcx, [rcx]
@@ -233,16 +257,16 @@
 	je compare_fractions
 	jmp exit_compiler
 	compare_fractions:
-	mov rbx, [rbp+8*4] ; first param 	
-	mov rcx, [rbp+8*5] ; second param
+	mov rbx, [rbp+8*(rdi+4)] ; first param 	
+	mov rcx, [rbp+8*(rdi+5)] ; second param
 	mov rbx, [rbx]
 	mov rcx, [rcx]
 	CAR rbx ; numer
 	CAR rcx ; numer
 	cmp rbx, rcx
 	jne not_shave
-	mov rbx, [rbp+8*4] ; first param 	
-	mov rcx, [rbp+8*5] ; second param
+	mov rbx, [rbp+8*(rdi+4)] ; first param 	
+	mov rcx, [rbp+8*(rdi+5)] ; second param
 	mov rbx, [rbx]
 	mov rcx, [rcx]
 	CDR rbx ; denom
@@ -250,11 +274,11 @@
 	cmp rbx, rcx
 	jne not_shave
 	mov rax, sobTrue
-	jmp endShave
+	jmp shave_compare
 
 	compare_integers:
-	mov rbx, [rbp+8*4] ; first param 	
-	mov rcx, [rbp+8*5] ; second param
+	mov rbx, [rbp+8*(rdi+4)] ; first param 	
+	mov rcx, [rbp+8*(rdi+5)] ; second param
 	mov rbx, [rbx]
 	mov rcx, [rcx]
 	DATA rbx
@@ -262,12 +286,182 @@
 	cmp qword rbx, rcx
 	jne not_shave
 	mov rax, sobTrue
-	jmp endShave
+	jmp shave_compare
 
 	not_shave:
 	mov rax, sobFalse
 
 	endShave:
+	"
+	)
+
+(define impl-<
+	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 1
+	jg lessthan_multiple_params
+	cmp rbx, 0
+	je exit_compiler
+	mov rbx, [rbp+8*4] ; first param 	
+	mov rbx, [rbx]
+	TYPE rbx
+
+	cmp qword rbx, T_INTEGER
+	je lessthan_param_ok
+	cmp qword rbx, T_FRACTION
+	je lessthan_param_ok
+	jmp exit_compiler
+
+	lessthan_param_ok:
+	mov rax, sobTrue
+	jmp endlessthan
+
+	lessthan_multiple_params:
+
+
+	mov r10, [rbp+8*3] ; n
+	dec r10
+	mov rdi, -1
+	lessthan_compare:
+	inc rdi
+	cmp rdi, r10 
+	je endlessthan
+
+	mov rbx, [rbp+8*(rdi+4)] 
+	mov rcx, [rbp+8*(rdi+5)]
+
+	mov rbx, [rbx]
+	mov rcx, [rcx]
+	TYPE rbx
+	TYPE rcx
+	cmp qword rbx, rcx
+	jne not_lessthan
+	cmp qword rbx, T_INTEGER
+	je lessthan_compare_integers
+	cmp qword rbx, T_FRACTION
+	je lessthan_compare_fractions
+	jmp exit_compiler
+	lessthan_compare_fractions:
+	;mov rbx, [rbp+8*(rdi+4)] ; first param 	
+	;mov rcx, [rbp+8*(rdi+5)] ; second param
+	;mov rbx, [rbx]
+	;mov rcx, [rcx]
+	;CAR rbx ; numer
+	;CAR rcx ; numer
+	;cmp rbx, rcx
+	;jne not_lessthan
+	;mov rbx, [rbp+8*(rdi+4)] ; first param 	
+	;mov rcx, [rbp+8*(rdi+5)] ; second param
+	;mov rbx, [rbx]
+	;mov rcx, [rcx]
+	;CDR rbx ; denom
+	;CDR rcx ; denom
+	;cmp rbx, rcx
+	;jne not_lessthan
+	;mov rax, sobTrue
+	;jmp lessthan_compare
+
+	lessthan_compare_integers:
+	mov rbx, [rbp+8*(rdi+4)] ; first param 	
+	mov rcx, [rbp+8*(rdi+5)] ; second param
+	mov rbx, [rbx]
+	mov rcx, [rcx]
+	DATA rbx
+	DATA rcx
+	cmp qword rbx, rcx
+	jge not_lessthan
+	mov rax, sobTrue
+	jmp lessthan_compare
+
+	not_lessthan:
+	mov rax, sobFalse
+
+	endlessthan:
+	"
+	)
+
+(define impl->
+	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 1
+	jg greaterthan_multiple_params
+	cmp rbx, 0
+	je exit_compiler
+	mov rbx, [rbp+8*4] ; first param 	
+	mov rbx, [rbx]
+	TYPE rbx
+
+	cmp qword rbx, T_INTEGER
+	je greaterthan_param_ok
+	cmp qword rbx, T_FRACTION
+	je greaterthan_param_ok
+	jmp exit_compiler
+
+	greaterthan_param_ok:
+	mov rax, sobTrue
+	jmp endgreaterthan
+
+	greaterthan_multiple_params:
+
+
+	mov r10, [rbp+8*3] ; n
+	dec r10
+	mov rdi, -1
+	greaterthan_compare:
+	inc rdi
+	cmp rdi, r10 
+	je endgreaterthan
+
+	mov rbx, [rbp+8*(rdi+4)] 
+	mov rcx, [rbp+8*(rdi+5)]
+
+	mov rbx, [rbx]
+	mov rcx, [rcx]
+	TYPE rbx
+	TYPE rcx
+	cmp qword rbx, rcx
+	jne not_greaterthan
+	cmp qword rbx, T_INTEGER
+	je greaterthan_compare_integers
+	cmp qword rbx, T_FRACTION
+	je greaterthan_compare_fractions
+	jmp exit_compiler
+	greaterthan_compare_fractions:
+	;mov rbx, [rbp+8*(rdi+4)] ; first param 	
+	;mov rcx, [rbp+8*(rdi+5)] ; second param
+	;mov rbx, [rbx]
+	;mov rcx, [rcx]
+	;CAR rbx ; numer
+	;CAR rcx ; numer
+	;cmp rbx, rcx
+	;jne not_greaterthan
+	;mov rbx, [rbp+8*(rdi+4)] ; first param 	
+	;mov rcx, [rbp+8*(rdi+5)] ; second param
+	;mov rbx, [rbx]
+	;mov rcx, [rcx]
+	;CDR rbx ; denom
+	;CDR rcx ; denom
+	;cmp rbx, rcx
+	;jne not_greaterthan
+	;mov rax, sobTrue
+	;jmp greaterthan_compare
+
+	greaterthan_compare_integers:
+	mov rbx, [rbp+8*(rdi+4)] ; first param 	
+	mov rcx, [rbp+8*(rdi+5)] ; second param
+	mov rbx, [rbx]
+	mov rcx, [rcx]
+	DATA rbx
+	DATA rcx
+	cmp qword rbx, rcx
+	jle not_greaterthan
+	mov rax, sobTrue
+	jmp greaterthan_compare
+
+	not_greaterthan:
+	mov rax, sobFalse
+
+	endgreaterthan:
 	"
 	)
 
@@ -407,7 +601,7 @@
 	'(
 		(define list (lambda x x))
 		(define number? (lambda (x) (rational? x)))
-		(define = 
+		#;(define = 
 			(lambda x
 				(let ((first (car x)) (rest (cdr x)))
 					(letrec ((run (lambda y
@@ -534,7 +728,6 @@
 (define label-fvars
 	(lambda (labeled-fvars fvars)
 		(if (null? fvars) labeled-fvars
-			;(label-fvars (append labeled-fvars (list `(,(car fvars) ,(glob-label)))) (cdr fvars)))
 			(label-fvars (append labeled-fvars (list `(,(car fvars) ,(string-append "Lglob_" (clean-name (symbol->string (car fvars))))))) (cdr fvars)))
 	))
 
