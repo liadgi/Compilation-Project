@@ -1,11 +1,23 @@
+(define shave (gensym))
 (define assembly-function-names
 	(list 
-	'cons 'car 'cdr 
+	'cons 
+	'car ; returns new object
+	'cdr ; returns new object
 	'boolean? 'char? 'integer? 'null? 'pair? 'procedure? 'rational? 'string? 'symbol? 'vector? 
 	; just without 'number?
-
+	'shave
+	'not
+	'char->integer
+	'integer->char ; check this out
+	;'string->symbol
+	;'symbol->string
+	'set-car! ; check this out
+	'set-cdr! ; check this out
 	)
 )
+
+
 
 
 (define init-functions
@@ -15,6 +27,12 @@
 		(func-frame fvars "cdr" impl-cdr)
 		(gen-predicates fvars)
 		(func-frame fvars "rational?" impl-rational?)
+		(func-frame fvars "shave" impl-=)
+		(func-frame fvars "not" impl-not)
+		(func-frame fvars "char->integer" impl-char->integer)
+		(func-frame fvars "integer->char" impl-integer->char)
+		(func-frame fvars "set-car!" impl-set-car!)
+		(func-frame fvars "set-cdr!" impl-set-cdr!)
 	))
 
 
@@ -50,17 +68,38 @@
 			"
 		)))
 
+(define clean-name
+	(lambda (x)
+		(=->equals (dash->underline (remove-exclamation-mark (arrow->to x))))
+		))
+
+(define =->equals
+	(lambda (x)
+		(string-replace x "=" "equals")))
+
+(define remove-exclamation-mark
+	(lambda (x)
+		(string-replace x "!" "")))
+
+(define dash->underline
+	(lambda (x)
+		(string-replace x "-" "_")))
+
+(define arrow->to
+	(lambda (x)
+		(string-replace x "->" "_to_")))
+
 (define func-frame
 	(lambda (fvars name func)
-		(let ((label (lookup-fvar-get-label (string->symbol name) fvars))
-			  (impl (string-append name "_label"))
-			  (skip (string-append name "_end_label")))
+		(let* ((cln-name (clean-name name))
+			  (label (lookup-fvar-get-label (string->symbol name) fvars))
+			  (impl (string-append cln-name "_label"))
+			  (skip (string-append cln-name "_end_label")))
 			(gen-func-prologue name impl skip)
 			(print-line func)
 			(gen-func-epilogue name skip label)
 		)
-
-		))
+))
 
 (define impl-cons
 	"
@@ -158,22 +197,208 @@
 		))
 
 
-(define =-impl
+(define impl-=
 	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 1
+	jg shave_multiple_params
+	mov rbx, [rbp+8*4] ; first param 	
+	mov rbx, [rbx]
+	TYPE rbx
+
+	cmp qword rbx, T_INTEGER
+	je shave_param_ok
+	cmp qword rbx, T_FRACTION
+	je shave_param_ok
+	jmp exit_compiler
+
+	shave_param_ok:
+	mov rax, sobTrue
+	jmp endShave
+
+	shave_multiple_params:
+
 	mov rbx, [rbp+8*4] ; first param 	
 	mov rcx, [rbp+8*5] ; second param
 
-	mov rax, [rbx]
-	TYPE rax
-	cmp qword rax, T_PAIR
-	je indeed
-	jmp exit_compiler
-	cdr_type_ok:
-
 	mov rbx, [rbx]
-	CDR rbx
+	mov rcx, [rcx]
+	TYPE rbx
+	TYPE rcx
+	cmp qword rbx, rcx
+	jne not_shave
+	cmp qword rbx, T_INTEGER
+	je compare_integers
+	cmp qword rbx, T_FRACTION
+	je compare_fractions
+	jmp exit_compiler
+	compare_fractions:
+	mov rbx, [rbp+8*4] ; first param 	
+	mov rcx, [rbp+8*5] ; second param
+	mov rbx, [rbx]
+	mov rcx, [rcx]
+	CAR rbx ; numer
+	CAR rcx ; numer
+	cmp rbx, rcx
+	jne not_shave
+	mov rbx, [rbp+8*4] ; first param 	
+	mov rcx, [rbp+8*5] ; second param
+	mov rbx, [rbx]
+	mov rcx, [rcx]
+	CDR rbx ; denom
+	CDR rcx ; denom
+	cmp rbx, rcx
+	jne not_shave
+	mov rax, sobTrue
+	jmp endShave
+
+	compare_integers:
+	mov rbx, [rbp+8*4] ; first param 	
+	mov rcx, [rbp+8*5] ; second param
+	mov rbx, [rbx]
+	mov rcx, [rcx]
+	DATA rbx
+	DATA rcx
+	cmp qword rbx, rcx
+	jne not_shave
+	mov rax, sobTrue
+	jmp endShave
+
+	not_shave:
+	mov rax, sobFalse
+
+	endShave:
+	"
+	)
+
+(define impl-not
+"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 1
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the single param
+	mov rbx, [rbx]
+	mov rax, sobFalse
+	mov rax, [rax]
+	cmp qword rax, rbx
+	jne not_set_false
+
+	mov rax, sobTrue
+	jmp not_end
+
+	not_set_false:
+	mov rax, sobFalse
+
+	not_end:
+	"
+	)
+
+(define impl-char->integer
+"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 1
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the single param
+	mov rbx, [rbx]
+	TYPE rbx
+	cmp qword rbx, T_CHAR
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the single param
+	mov rbx, [rbx]
+	sar rbx, TYPE_BITS
+	sal rbx, TYPE_BITS
+	or rbx, T_INTEGER
 	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
 	mov [rax], rbx
+
+	"
+	)
+(define impl-integer->char
+	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 1
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the single param
+	mov rbx, [rbx]
+	TYPE rbx
+	cmp qword rbx, T_INTEGER
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the single param
+	mov rbx, [rbx]
+	sar rbx, TYPE_BITS
+	sal rbx, TYPE_BITS
+	or rbx, T_CHAR
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rbx
+
+	"
+	)
+
+(define impl-set-car!
+	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 2
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the first param
+
+	mov rbx, [rbx]
+	TYPE rbx
+	cmp qword rbx, T_PAIR
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the first param
+	mov rbx, [rbx]
+	mov rcx, [rbp+8*5] 		; the second param
+
+	shl rbx, ((WORD_SIZE - TYPE_BITS) >> 1) ; move 30 bits left
+	shr rbx, ((WORD_SIZE - TYPE_BITS) >> 1) ; move 30 bits right
+
+	sub rcx, start_of_data
+	shl rcx, (((WORD_SIZE - TYPE_BITS) >> 1) + TYPE_BITS) ; move 34 bits left
+	or rbx, rcx
+
+	mov rcx, [rbp+8*4]		; the first param
+	mov qword [rcx], rbx
+	mov rax, sobVoid
+
+	"
+	)
+
+(define impl-set-cdr!
+	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 2
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the first param
+
+	mov rbx, [rbx]
+	TYPE rbx
+	cmp qword rbx, T_PAIR
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the first param
+	mov rbx, [rbx]
+	mov rcx, [rbp+8*5] 		; the second param
+
+	shr rbx, (((WORD_SIZE - TYPE_BITS) >> 1)+ TYPE_BITS) ; move 34 bits right
+	shl rbx, (((WORD_SIZE - TYPE_BITS) >> 1)+ TYPE_BITS) ; move 34 bits left
+
+	sub rcx, start_of_data
+	shl rcx, TYPE_BITS ; move 4 bits left
+	or rbx, T_PAIR
+	or rbx, rcx
+
+	mov rcx, [rbp+8*4]		; the first param
+	mov qword [rcx], rbx
+	mov rax, sobVoid
+
 	"
 	)
 
@@ -182,6 +407,35 @@
 	'(
 		(define list (lambda x x))
 		(define number? (lambda (x) (rational? x)))
+		(define = 
+			(lambda x
+				(let ((first (car x)) (rest (cdr x)))
+					(letrec ((run (lambda y
+									(let* ((lst (car y))
+										   (first (car lst))
+										   (rest (cdr lst)))
+									(cond ((and (null? rest) (number? first)) (shave first))
+							  		(else
+							  			(cond ((null? (cdr rest)) (shave first (car rest))) 
+							  			  (else (and (shave first (car rest))
+							  			  			 (run rest)))
+							  		)
+							  )
+							)
+										))))
+				(cond ((and (null? rest) (number? first)) (shave first)) 
+						  		(else
+						  			(cond ((null? (cdr rest)) (shave first (car rest)))
+						  			  (else (and (shave first (car rest))
+						  			  			 (run rest)))
+						  		)
+						  )
+						)
+
+					))
+			)
+		)
+		(define zero? (lambda (x) (= x 0)))
 		;(define list2 (lambda x (lambda (y) y)))
 		;(define list2 (lambda (x y . z ) z))
 		;(define complicated (lambda (x y . z) (if x (list y z (cons x z)) (list z y))))
@@ -226,7 +480,37 @@
 			) exps)
 		))
 
+(define prefix?
+	(lambda (haystack needle)
+		(cond ((and (null? haystack) (null? needle)) #t)
+			  ((and (null? haystack) (not (null? needle))) #f)
+			  ((and (null? needle) (not (null? haystack))) #t)
+			  ((not (eq? (car haystack) (car needle))) #f)
+			  (else (prefix? (cdr haystack) (cdr needle)))
+			)
+))
 
+(define reverse-append
+	(lambda (a b)
+		(append (reverse a) b)
+		))
+
+
+(define (string-replace haystack needle replacement)    
+  ;; most of the processing works on lists 
+  ;; of char, not strings.
+  (let ((haystack (string->list haystack))
+        (needle (string->list needle))
+        (replacement (string->list replacement))
+        (needle-len (string-length needle)))
+    (let loop ((haystack haystack) (acc '()))
+      (cond ((null? haystack)
+             (list->string (reverse acc)))
+            ((prefix? haystack needle)
+             (loop (list-tail haystack needle-len)
+                   (reverse-append replacement acc)))
+            (else
+             (loop (cdr haystack) (cons (car haystack) acc)))))))
 
 (define init-fvars-list
 	(append assembly-function-names (map (lambda (x) (cadr x)) scheme-functions)))
@@ -235,7 +519,7 @@
 	(lambda (exp) 
 		(letrec ((run
 			(lambda (var-list exp) 
-				(if (not (pair? exp)) '()
+				(if (not (pair? exp)) var-list
 					(if (eq? (car exp) 'fvar) (cdr exp)
 						(append var-list (run var-list (car exp)) 
 										 (run var-list (cdr exp))))
@@ -251,7 +535,7 @@
 	(lambda (labeled-fvars fvars)
 		(if (null? fvars) labeled-fvars
 			;(label-fvars (append labeled-fvars (list `(,(car fvars) ,(glob-label)))) (cdr fvars)))
-			(label-fvars (append labeled-fvars (list `(,(car fvars) ,(string-append "Lglob_" (symbol->string (car fvars)))))) (cdr fvars)))
+			(label-fvars (append labeled-fvars (list `(,(car fvars) ,(string-append "Lglob_" (clean-name (symbol->string (car fvars))))))) (cdr fvars)))
 	))
 
 (define lookup-fvar-get-label

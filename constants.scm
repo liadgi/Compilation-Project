@@ -47,7 +47,7 @@
 									(let* ((atom (car lst))
 										   (label-counter (number->string counter)))
 										(cond ;((boolean? atom) (list 'sob 'T_BOOL))
-										  ((integer? atom) (list atom counter 'T_INT (string-append "sobInt" (number->string atom) "_" label-counter)))
+										  ((integer? atom) (list atom counter 'T_INT (string-append "sobInt" (string-replace (number->string atom) "-" "minus") "_" label-counter)))
 										  ((char? atom) (list atom counter 'T_CHAR (string-append "sobChar" label-counter)))
 										  ((string? atom) (list atom counter 'T_STRING (string-append "sobString" label-counter)))
 										  ;((number? atom) (list atom counter 'T_NUMBER (string-append "sobNumber" label-counter)))
@@ -121,7 +121,7 @@
 
 (define lookup-constant-in-table
 	(lambda (constant table)
-		(if (null? table) ((display-newline "could not find constant") exit)
+		(if (null? table) (begin (display "could not find constant ") (display-newline constant) (exit))
 			(if (equal? (caar table) constant) 
 				(car table) 
 				(lookup-constant-in-table constant (cdr table))))

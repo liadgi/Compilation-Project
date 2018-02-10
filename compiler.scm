@@ -55,20 +55,35 @@
 			(print-tabbed-line "
 				
 				exit_compiler:
-
+				push rbx
+				mov esi, 1
 				mov rax, 0
 				mov rdi, .error_msg
 				call printf
+				pop rbx
 
 				mov rax, 1
 				mov rbx, 0
 				int 0x80
 
-				;section .data
+				section .data
 				.error_msg:
 					db \"error occured.\", 0
 				"))
 ))
+
+
+
+;write_sob_undefined:
+;	push rbp
+;	mov rbp, rsp
+;
+;	mov rax, 0
+;	mov rdi, .undefined
+;	call printf
+;
+;	leave
+;	ret
 
 (define gen-make-literal-nil
 	(lambda ()
@@ -751,7 +766,6 @@
 				(tc-applic-loop-end (tc-loop-end-label)))
 			(print-line "
 				;start tc-applic-gen
-				push SOB_NIL
 				;pushing arguments")
 			(my-map (lambda (param)
 				(code-gen param constants-table major fvars-table) 
@@ -779,11 +793,11 @@
 				mov rbp, [rbp] 			;rbp <-- previous rbp
 				mov r11, [r8+3*8]		;r11 <-- previous n = n
 				mov r9, r11
-				add r9, 4
-				shl r9, 3				;r9 <-- (n+4)*8
-				add r9, r8				;r9 <-- r8 + (n+4)*8
-				mov r10, r9				;previous NIL 
-				sub r8, 8				;current NIL
+				add r9, 3
+				shl r9, 3				;r9 <-- (n+3)*8
+				add r9, r8				;r9 <-- r8 + (n+3)*8
+				mov r10, r9				;previous last param 
+				sub r8, 8				;current last param
 				;loop - replacing stack
 
 				mov rdi, 0
@@ -798,8 +812,8 @@
 				jmp "tc-applic-loop"
 				"tc-applic-loop-end":
 
-				add r11, 5				;r11 <-- 5+n
-				shl r11, 3				;r11 <-- 8*(5+n)
+				add r11, 4				;r11 <-- 4+n
+				shl r11, 3				;r11 <-- 8*(4+n)
 				add rsp, r11
 				jmp rax
 
@@ -826,8 +840,7 @@
 			  ((eq? (car ast) 'box) (box-gen (cadr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'box-get) (box-get-gen (cadr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'box-set) (box-set-gen (cdr ast) constants-table major fvars-table))
-			  ;((eq? (car ast) 'tc-applic) (tc-applic-gen (cdr ast) constants-table major fvars-table))
-			  ((eq? (car ast) 'tc-applic) (applic-gen (cdr ast) constants-table major fvars-table))
+			  ((eq? (car ast) 'tc-applic) (tc-applic-gen (cdr ast) constants-table major fvars-table))
 		)
 ))
 
@@ -846,7 +859,7 @@
 
 (define gen-code-assembly
 	(lambda (asts constants-table fvars)
-		(if (null? asts) void
+		(if (null? asts) (void)
 			(begin
 				(begin (code-gen (car asts) constants-table 0 fvars)
 				 	   (if
@@ -874,6 +887,7 @@
 				(funcs-in-assembly (init-functions fvars)) ; cons, ...
 				(fake-env (gen-fake-env))
 				(funcs-in-scheme (gen-global-functions scheme-expressions constants-table fvars)) ; list, ...
+
 				(code-assembly (gen-code-assembly (caddr structure) constants-table fvars))
 				(epilogue-assembly (gen-epilogue-assembly))
 				)
@@ -887,13 +901,12 @@
 (define compile-scheme-file
 	(lambda (file output-file)
 		(let* ((asts (pipeline (file->list file)))
-			   (const-table (build-constants-table asts))
+			   (const-table (build-constants-table (append asts scheme-expressions)))
 			   (fvars-table (label-fvars '() (get-fvars-list asts)))
 			   )
 		;asts
 		;fvars-table
 		;const-table
-		;void
 		(begin 
 			(delete-file output-file) 
 			(set! output-port (open-output-file output-file))
