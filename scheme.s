@@ -82,6 +82,11 @@
 	mov %1, qword [%1]
 %endmacro
 
+%macro CAR_ADDR 1
+	DATA_UPPER %1
+	add %1, start_of_data
+%endmacro
+
 %macro CDR 1
 	DATA_LOWER %1
 	add %1, start_of_data

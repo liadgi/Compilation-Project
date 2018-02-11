@@ -51,3 +51,9 @@
 
 (define lambda-less-args-than-params-label
 	(^make_label "Llambda_less_args_than_params"))
+
+(define apply-label
+	(^make_label "L_apply"))
+
+(define apply-end-label
+	(^make_label "L_apply_end"))
