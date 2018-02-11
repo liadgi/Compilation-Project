@@ -1,13 +1,61 @@
-TODO:
+Fully implemented functions:
+list
+cons
+boolean?
+char?
+integer?
+not
+null?
+integer->char
+pair?
+procedure?
+rational?
+number?
+string?
+
+Implemented* - should be verified by TAs answers, lookout the tests for more details 
+car
+cdr
+set-car!
+set-cdr!
+zero?
+char->integer
 
 
-liad - nested lists
+Currently on progress (Liad):
+denominator
+numerator
+< (variadic)
+= (variadic)
+> (variadic)
++ (variadic)
+/ (variadic)
+* (variadic)
+- (variadic)
 
-neta -
-fraction
-char
-string
-add vector
 
-
+Not implemented yet:
 symbol table
+append (variadic)
+apply (not variadic)
+make-string
+string-length
+string-ref
+string-set!
+symbol->string
+string->symbol
+make-vector
+vector
+vector-length
+vector-ref
+vector-set!
+vector?
+remainder
+eq?
+map (variadic)
+symbol?
+
+
+
+
+
