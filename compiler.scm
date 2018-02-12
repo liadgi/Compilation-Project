@@ -386,7 +386,7 @@
 						(cond ((eq? type 'T_NIL) (gen-make-literal-nil))
 							  ((eq? type 'T_BOOL) (if value (gen-make-literal-true) (gen-make-literal-false)))
 							  ((eq? type 'T_VOID) (gen-make-literal-void))
-							  ((eq? type 'T_INT) (gen-make-literal-integer value label))
+							  ((eq? type 'T_INTEGER) (gen-make-literal-integer value label))
 							  ((eq? type 'T_CHAR) (gen-make-literal-char value label))
 							  ((eq? type 'T_PAIR) (gen-make-literal-pair label rest))
 							  ((eq? type 'T_VECTOR) (gen-make-literal-vector label rest))

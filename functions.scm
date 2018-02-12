@@ -5,7 +5,6 @@
 	'cdr ; returns new object
 	'boolean? 'char? 'integer? 'null? 'pair? 'procedure? 'rational? 'string? 'symbol? 'vector? 
 	; just without 'number?
-	;'shave
 	'=
 	'<
 	'>
@@ -16,103 +15,11 @@
 	;'symbol->string
 	'set-car! ; check this out
 	'set-cdr! ; check this out
-	;'gcd
-	;'convert
-	;'set_params_to_fractions
-	;'call_set_params_to_fractions
 	'apply
+	'numerator
+	'denominator
 	)
 )
-
-(define set-apply
-	(lambda (labelApply labelApplyEnd fvars)
-		(let ((label (lookup-fvar-get-label 'apply fvars))
-			(looplabel (loop-label))
-			(loopEndLabel (loop-end-label))
-			(looplabel2 (loop-label))
-			(loopEndLabel2 (loop-end-label)))
-			(print-line (string-append "
-					;*******	APPLY	*******
-					mov rbx, SOB_NIL
-					SAFE_MALLOC 16
-					MAKE_LITERAL_CLOSURE rax, rbx, " labelApply"
-					jmp " labelApplyEnd"
-					"labelApply":
-					push rbp
-					mov rbp, rsp
-
-					;count n
-					mov rbx, qword[rbp+5*8]			
-					mov rbx, [rbx]		;rbx <-- s (list of parameters)
-					mov rcx, rbx		;rcx <-- backup to s
-					mov rdi, 0
-					"looplabel":
-					cmp rbx, SOB_NIL
-					je "loopEndLabel"					
-					inc rdi
-					CDR rbx
-					jmp " looplabel"
-					"loopEndLabel":
-
-					;save old rbp
-					mov r8, rbp 		;r8 <-- old rbp
-					mov r11, [r8]
-					mov rdx, rdi
-					sub rdx, 2
-					shl rdx, 3			; rdx <-- (n-2)*8 //how much to jump forward
-					sub rbp, rdx 		;rbp <-- rbp-(n-2)*8
-
-					;save f
-					mov r10, qword[r8+(4*8)]
-
-					;save old ret
-					mov r9, qword[r8+(1*8)]	;previous ret
-					mov [rbp+(1*8)], r9
-
-					;get f - code & env
-					mov r13, [r10]
-					mov rbx, r13 	;rbx <-- closure(?)
-					TYPE rbx
-					cmp rbx, T_CLOSURE
-					jne L_error_cannot_apply_non_clos
-					mov rbx, r13
-					CLOSURE_ENV rbx 	;save env
-					mov [rbp+(2*8)], rbx
-					CLOSURE_CODE r13
-
-					;push n
-					mov [rbp+(3*8)], rdi
-
-					;push args from end (4*8) to begining ((3+n)*8)
-					mov rdi, 4
-					"looplabel2":
-					cmp rcx, SOB_NIL
-					je "loopEndLabel2"
-					mov rbx, rcx
-					CAR_ADDR rbx
-					mov rdx, rdi
-					shl rdx, 3
-					mov [rbp+rdx], rbx					
-					inc rdi
-					CDR rcx
-					jmp " looplabel2"
-					"loopEndLabel2":
-
-					"
-					(debug-label)":
-					;restore old rbp
-					add rbp, 8
-					mov rsp, rbp
-					mov rbp, r11
-					jmp r13
-					
-					"labelApplyEnd":
-					mov [" label "], rax
-					mov rax, SOB_VOID
-					;*******	APPLY-END	*******
-					"))
-		))
-	)
 
 
 (define init-functions
@@ -123,21 +30,14 @@
 		(gen-predicates fvars)
 		(func-frame fvars "rational?" impl-rational?)
 		(gen-comparisons fvars)
-		;(func-frame fvars "=" impl-=)
-		;(func-frame fvars "<" impl-<)
-		;(func-frame fvars ">" impl->)
 		(func-frame fvars "not" impl-not)
 		(func-frame fvars "char->integer" impl-char->integer)
 		(func-frame fvars "integer->char" impl-integer->char)
 		(func-frame fvars "set-car!" impl-set-car!)
 		(func-frame fvars "set-cdr!" impl-set-cdr!)
-
-		;(func-frame fvars "gcd" impl-gcd)
-		;(func-frame fvars "convert" impl-convert)
-		;(func-frame fvars "set_params_to_fractions" impl-set_params_to_fractions)
-		;(func-frame fvars "call_set_params_to_fractions" impl-call_set_params_to_fractions)
-
 		(set-apply (apply-label) (apply-end-label) fvars)
+		(func-frame fvars "numerator" impl-numerator)
+		(func-frame fvars "denominator" impl-denominator)
 
 	))
 
@@ -565,146 +465,166 @@
 	)
 
 
-#;(define impl-gcd
-	"
-			;start
-			mov rax, [rbp+8*4] 		; the numerator
-			mov rax, [rax]
-			shr rax, TYPE_BITS
-			mov rbx, [rbp+8*5] 		; the denominator
-			mov rbx, [rbx]
-			shr rbx, TYPE_BITS
+(define set-apply
+	(lambda (labelApply labelApplyEnd fvars)
+		(let ((label (lookup-fvar-get-label 'apply fvars))
+			(looplabel (loop-label))
+			(loopEndLabel (loop-end-label))
+			(looplabel2 (loop-label))
+			(loopEndLabel2 (loop-end-label)))
+			(print-line (string-append "
+					;*******	APPLY	*******
+					mov rbx, SOB_NIL
+					SAFE_MALLOC 16
+					MAKE_LITERAL_CLOSURE rax, rbx, " labelApply"
+					jmp " labelApplyEnd"
+					"labelApply":
+					push rbp
+					mov rbp, rsp
 
-			gcd_loop:
-			cmp rbx, 0
-			je end_gcd_loop
-			mov r10, rbx ; t = b
+					;count n
+					mov rbx, qword[rbp+5*8]			
+					mov rbx, [rbx]		;rbx <-- s (list of parameters)
+					mov rcx, rbx		;rcx <-- backup to s
+					mov rdi, 0
+					"looplabel":
+					cmp rbx, SOB_NIL
+					je "loopEndLabel"					
+					inc rdi
+					CDR rbx
+					jmp " looplabel"
+					"loopEndLabel":
 
-			; b = a mod b
-			mov rdx, 0
-			div rbx ; rdx = a mod b
-			mov rbx, rdx ; b = a mod b
+					;save old rbp
+					mov r8, rbp 		;r8 <-- old rbp
+					mov r11, [r8]
+					mov rdx, rdi
+					sub rdx, 2
+					shl rdx, 3			; rdx <-- (n-2)*8 //how much to jump forward
+					sub rbp, rdx 		;rbp <-- rbp-(n-2)*8
 
-			mov rax, r10 ; a = t
+					;save f
+					mov r10, qword[r8+(4*8)]
 
-			jmp gcd_loop
-			end_gcd_loop:
+					;save old ret
+					mov r9, qword[r8+(1*8)]	;previous ret
+					mov [rbp+(1*8)], r9
 
-			; res in rax
-			shl rax, TYPE_BITS
-			or rax, T_INTEGER
+					;get f - code & env
+					mov r13, [r10]
+					mov rbx, r13 	;rbx <-- closure(?)
+					TYPE rbx
+					cmp rbx, T_CLOSURE
+					jne L_error_cannot_apply_non_clos
+					mov rbx, r13
+					CLOSURE_ENV rbx 	;save env
+					mov [rbp+(2*8)], rbx
+					CLOSURE_CODE r13
 
-			mov rbx, rax
-			SAFE_MALLOC 8 ; rax = SAFE_MALLOC
-			mov [rax], rbx
-			
-			;end
-	")
+					;push n
+					mov [rbp+(3*8)], rdi
 
+					;push args from end (4*8) to begining ((3+n)*8)
+					mov rdi, 4
+					"looplabel2":
+					cmp rcx, SOB_NIL
+					je "loopEndLabel2"
+					mov rbx, rcx
+					CAR_ADDR rbx
+					mov rdx, rdi
+					shl rdx, 3
+					mov [rbp+rdx], rbx					
+					inc rdi
+					CDR rcx
+					jmp " looplabel2"
+					"loopEndLabel2":
 
-#;(define impl-convert
-	"
-			; we want a fraction where the numerator is the integer,
-			; and the denominator is 1.
-
-			; set the 1 as the denominator:
-			mov rbx, 1
-			shl rbx, TYPE_BITS
-			or rbx, T_INTEGER
-			SAFE_MALLOC 8 ; rax = SAFE_MALLOC
-			mov [rax], rbx
-			; rax = pointer to T_INTEGER 1
-			mov rcx, rax
-
-			mov rbx, [rbp+8*4] 		; the integer address
-			; copy
-			mov rbx, [rbx]
-			SAFE_MALLOC 8 ; rax = SAFE_MALLOC
-			mov [rax], rbx
-			mov rbx, rax
-
-			sub rbx, start_of_data
-			mov rdx, rbx
-			shl rdx, 34
-			mov rbx, rcx
-			sub rbx, start_of_data
-			shl rbx, TYPE_BITS ;;;; CHECK THIS ONE!
-			or rdx, rbx
-			or rdx, T_FRACTION
-			; rdx = sobIntX sobInt1 T_FRACTION
-
-			SAFE_MALLOC 8 ; rax = SAFE_MALLOC
-			mov [rax], rdx
-
-	"
+					"
+					(debug-label)":
+					;restore old rbp
+					add rbp, 8
+					mov rsp, rbp
+					mov rbp, r11
+					jmp r13
+					
+					"labelApplyEnd":
+					mov [" label "], rax
+					mov rax, SOB_VOID
+					;*******	APPLY-END	*******
+					"))
+		))
 	)
 
-#;(define impl-set_params_to_fractions
-		"
-		mov rbx, [rbp+8*4] 		; the first
-		mov rcx, [rbp+8*5] 		; the second
-		mov rbx, [rbx]
-		mov rcx, [rcx]
-
-		TYPE rbx
-		TYPE rcx
-		cmp rbx, T_FRACTION
-		je first_param_is_fraction
-		cmp rcx, T_FRACTION
-		je first_int_2nd_fract
-		jmp set_params_to_fractions_dont_touch ; both params are integers
-
-		first_param_is_fraction:
-		cmp rcx, T_INTEGER
-		je first_fract_2nd_int
-		jmp set_params_to_fractions_dont_touch ; both params are fractions
-
-		first_int_2nd_fract:
-		mov rax, [rbp+8*4]
-		push rax
-		call convert_integer_to_fraction ; rax = 1st param as fraction, address
-		pop rdi
-		mov rbx, rax
-		mov rcx, [rbp+8*5] 		; the second
-		jmp end_set_params_to_fractions
-
-		first_fract_2nd_int:
-		mov rax, [rbp+8*5]
-		push rax
-		call convert_integer_to_fraction ; rax = 2nd param as fraction, address
-		pop rdi
-		mov rbx, [rbp+8*4] 		; the first
-		mov rcx, rax
-		jmp end_set_params_to_fractions
-
-		set_params_to_fractions_dont_touch:
-		mov rbx, [rbp+8*4] 		; the first
-		mov rcx, [rbp+8*5] 		; the second
-
-		jmp end_set_params_to_fractions
-
-
-		end_set_params_to_fractions:
-		;mov rax, rbx
-	")
-
-
-#;(define impl-call_set_params_to_fractions
+(define impl-numerator
 	"
-	mov rbx, [rbp+8*4] 
-	mov rcx, [rbp+8*5]
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 1
+	jne exit_compiler
 
-	 push rbx
-	 push rcx
-	 call set_params_to_fractions ; rbx = (possibly new [rbp+8*(rdi+4)]) , rcx = (possibly new [rbp+8*(rdi+5)])
-	 pop rax ; just balance stack
-	 pop rax ; just balance stack
-	 test:
+	mov rbx, [rbp+8*4] 		; the first param
 
-	 ;mov rax, rbx ; second
-	 ;mov rax, rcx ; first
+	mov rbx, [rbx]
+	TYPE rbx
+	cmp qword rbx, T_INTEGER
+	je numerator_integer
+	cmp qword rbx, T_FRACTION
+	je numerator_fraction
+	jne exit_compiler
+
+	numerator_integer:
+	mov rax, [rbp+8*4] 		; the value itself
+	jmp end_numerator
+
+	numerator_fraction:
+	mov rax, [rbp+8*4] 		; the first param
+	mov rax, [rax] ; T_FRACTION
+
+	shr rax, (((WORD_SIZE - TYPE_BITS) >> 1) + TYPE_BITS) ; move 34 bits right
+	add rax, start_of_data
+
+	jmp end_numerator
+
+	end_numerator:
 	"
-	)
+)
+
+(define impl-denominator
+	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 1
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the first param
+
+	mov rbx, [rbx]
+	TYPE rbx
+	cmp qword rbx, T_INTEGER
+	je denominator_integer
+	cmp qword rbx, T_FRACTION
+	je denominator_fraction
+	jne exit_compiler
+
+	denominator_integer:
+	mov rax, sobInt1 		; the value 1
+	jmp end_denominator
+
+	denominator_fraction:
+	mov rax, [rbp+8*4] 		; the first param
+	mov rax, [rax] ; T_FRACTION
+
+	shl rax, ((WORD_SIZE - TYPE_BITS) >> 1) ; move 30 bits left
+	shr rax, (((WORD_SIZE - TYPE_BITS) >> 1) + TYPE_BITS) ; move 34 bits right
+	add rax, start_of_data
+	jmp end_denominator
+
+	end_denominator:
+	"
+)
+
+
+
+
+
 
 
 (define scheme-functions

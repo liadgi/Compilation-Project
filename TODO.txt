@@ -11,6 +11,11 @@ pair?
 procedure?
 rational?
 string?
+< (variadic) - add nested tests - exception on [0 params / param not a number]
+= (variadic) - add nested tests - exception on [0 params / param not a number]
+> (variadic) - add nested tests - exception on [0 params / param not a number]
+denominator
+numerator
 
 Implemented* - should be verified by TAs answers, lookout the tests for more details 
 car
@@ -19,14 +24,8 @@ set-car!
 set-cdr!
 zero? - exception on [0 params / param not a number]
 char->integer
-< (variadic) - add nested tests - exception on [0 params / param not a number]
-= (variadic) - add nested tests - exception on [0 params / param not a number]
-> (variadic) - add nested tests - exception on [0 params / param not a number]
-
 
 Currently on progress (Liad):
-denominator
-numerator
 + (variadic)
 / (variadic)
 * (variadic)
