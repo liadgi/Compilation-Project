@@ -166,9 +166,8 @@
 	jmp exit_compiler
 	car_type_ok:
 
-	mov rbx, [rbx]
-	CAR_ADDR rbx
-	mov rax, rbx
+	mov rax, [rbx]
+	CAR_ADDR rax
 	")
 
 (define impl-cdr
@@ -182,9 +181,8 @@
 	jmp exit_compiler
 	cdr_type_ok:
 
-	mov rbx, [rbx]
-	CDR_ADDR rbx
-	mov rax, rbx
+	mov rax, [rbx]
+	CDR_ADDR rax
 	")
 
 (define impl-rational? ; fraction or integer
@@ -842,6 +840,25 @@
 			)
 		)
 		(define zero? (lambda (x) (= x 0)))
+
+		(define maplist
+			(lambda (f s)
+				(if (null? (car s)) 
+					'()
+					(cons (apply f (map1 car s))
+						(maplist f (map1 cdr s))))
+			))
+
+		(define map1
+			(lambda (f s)
+				(if (null? s)
+					'()
+					(cons (f (car s))
+						(map1 f (cdr s))))
+			))
+		(define map
+			(lambda (f . s)
+				(maplist f s)))
 		;(define list2 (lambda x (lambda (y) y)))
 		;(define list2 (lambda (x y . z ) z))
 		;(define complicated (lambda (x y . z) (if x (list y z (cons x z)) (list z y))))
