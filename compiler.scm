@@ -77,24 +77,100 @@
 	(lambda () 3
 		(print-line
 		"jmp end_assembly_helpers
+
+		gcd: ; num, denom
+		push rbp
+		mov rbp, rsp
+
+		;start
+		mov rax, [rbp+8*2] 		; the numerator
+		;mov rax, [rax]
+		;shr rax, TYPE_BITS
+		mov rbx, [rbp+8*3] 		; the denominator
+		;mov rbx, [rbx]
+		;shr rbx, TYPE_BITS
+
+		gcd_loop:
+		cmp rbx, 0
+		je end_gcd_loop
+		mov r10, rbx ; t = b
+
+		; b = a mod b
+		mov rdx, 0
+		div rbx ; rdx = a mod b
+		mov rbx, rdx ; b = a mod b
+
+		mov rax, r10 ; a = t
+
+		jmp gcd_loop
+		end_gcd_loop:
+
+		; res in rax
+		;shl rax, TYPE_BITS
+		;or rax, T_INTEGER
+
+		;mov rbx, rax
+		;SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		;mov [rax], rbx
+		
+		;end
+
+		pop rbp
+		ret
+
 		simplify_fraction:
 		push rbp
 		mov rbp, rsp
 
-		mov rbx, [rbp+8*4] 		; the fraction
-		mov rbx, [rbx]
-		mov rcx, rbx ; take numerator
-		CAR rcx
-		mov rdx, rbx ; take denominator
-		CAR rdx
-		push rcx
-		push rdx
+		mov rbx, [rbp+8*2] 		; the numerator
+		mov rcx, [rbp+8*3] 		; the denominator
+		
+		push rcx ; the denominator
+		push rbx ; the numerator
 		call gcd
 		pop rdx
 		pop rcx
-		; rax = T_INTEGER result from gcd
-		
+		; rax = result from gcd
+		mov rbx, rax ; rbx = gcd
 
+		; divide each by gcd (rax)
+		mov rax, [rbp+8*2] 		; rax = numerator
+		mov rdx, 0
+		div rbx ; rax = numerator / gcd (rax = rax / rbx)
+		mov r8, rax ; simplified numerator
+
+
+		mov rax, [rbp+8*3] 		; rax = denominator
+		mov rdx, 0
+		div rbx ; rax = denominator / gcd (rax = rax / rbx)
+		mov r9, rax ; simplified denominator
+
+		; create addresses for simplified numerator
+		mov rbx, r8
+		shl rbx, TYPE_BITS
+		or rbx, T_INTEGER
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rbx
+		mov r8, rax ; address of simplified numerator
+
+		; create addresses for simplified denominator
+		mov rbx, r9
+		shl rbx, TYPE_BITS
+		or rbx, T_INTEGER
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rbx
+		mov r9, rax ; address of simplified denominator	
+		; create fraction (NEED SUB start_of_data ?????? probably yes)
+		sub r8, start_of_data
+		mov rbx, r8
+		shl rbx, 34
+		sub r9, start_of_data
+		shl r9, TYPE_BITS
+		or rbx, r9
+		or rbx, T_FRACTION
+
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rbx
 
 		pop rbp
 		ret
@@ -192,47 +268,6 @@
 
 		pop rbp
 		ret
-
-		gcd: ; num, denom
-		push rbp
-		mov rbp, rsp
-
-		;start
-		mov rax, [rbp+8*4] 		; the numerator
-		mov rax, [rax]
-		shr rax, TYPE_BITS
-		mov rbx, [rbp+8*5] 		; the denominator
-		mov rbx, [rbx]
-		shr rbx, TYPE_BITS
-
-		gcd_loop:
-		cmp rbx, 0
-		je end_gcd_loop
-		mov r10, rbx ; t = b
-
-		; b = a mod b
-		mov rdx, 0
-		div rbx ; rdx = a mod b
-		mov rbx, rdx ; b = a mod b
-
-		mov rax, r10 ; a = t
-
-		jmp gcd_loop
-		end_gcd_loop:
-
-		; res in rax
-		shl rax, TYPE_BITS
-		or rax, T_INTEGER
-
-		mov rbx, rax
-		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
-		mov [rax], rbx
-		
-		;end
-
-		pop rbp
-		ret
-
 
 		end_assembly_helpers:
 		")

@@ -196,7 +196,7 @@ start_of_memory:
 
 extern exit, printf, scanf, malloc
 ;global main, write_sob, write_sob_if_not_void
-global write_sob, write_sob_if_not_void
+;global write_sob, write_sob_if_not_void
 section .text
 ;main:
 ;	nop

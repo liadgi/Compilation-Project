@@ -18,7 +18,7 @@
 	'apply
 	'numerator
 	'denominator
-	;'+
+	'+
 	;'-
 	;'*
 	;'/
@@ -47,6 +47,9 @@
 		;(func-frame fvars "-" impl--)
 		;(func-frame fvars "*" impl-*)
 		;(func-frame fvars "/" impl-/)
+
+		(func-frame fvars "+" (impl-+ "plus"))
+		
 
 	))
 
@@ -318,6 +321,8 @@
 		mov rcx, [rcx]
 		CAR rbx ; 1st numer
 		CDR rcx ; 2nd denom
+		DATA rbx
+		DATA rcx
 		mov rax, rbx
 		imul rcx ; res in rdx:rax
 		mov r8, rax ; ?
@@ -329,6 +334,8 @@
 		mov rcx, [rcx]
 		CAR rcx ; 2nd numer
 		CDR rbx ; 1st denom
+		DATA rbx
+		DATA rcx
 		mov rax, rbx
 		imul rcx ; res in rdx:rax
 		mov r9, rax ; ?
@@ -445,7 +452,7 @@
 	mov rcx, [rbp+8*5] 		; the second param
 
 	shl rbx, ((WORD_SIZE - TYPE_BITS) >> 1) ; move 30 bits left
-	shr rbx, ((WORD_SIZE - TYPE_BITS) >> 1) ; move 30 bits right
+	sar rbx, ((WORD_SIZE - TYPE_BITS) >> 1) ; move 30 bits right
 
 	sub rcx, start_of_data
 	shl rcx, (((WORD_SIZE - TYPE_BITS) >> 1) + TYPE_BITS) ; move 34 bits left
@@ -475,7 +482,7 @@
 	mov rbx, [rbx]
 	mov rcx, [rbp+8*5] 		; the second param
 
-	shr rbx, (((WORD_SIZE - TYPE_BITS) >> 1)+ TYPE_BITS) ; move 34 bits right
+	sar rbx, (((WORD_SIZE - TYPE_BITS) >> 1)+ TYPE_BITS) ; move 34 bits right
 	shl rbx, (((WORD_SIZE - TYPE_BITS) >> 1)+ TYPE_BITS) ; move 34 bits left
 
 	sub rcx, start_of_data
@@ -605,7 +612,7 @@
 	mov rax, [rbp+8*4] 		; the first param
 	mov rax, [rax] ; T_FRACTION
 
-	shr rax, (((WORD_SIZE - TYPE_BITS) >> 1) + TYPE_BITS) ; move 34 bits right
+	sar rax, (((WORD_SIZE - TYPE_BITS) >> 1) + TYPE_BITS) ; move 34 bits right
 	add rax, start_of_data
 
 	jmp end_numerator
@@ -639,7 +646,7 @@
 	mov rax, [rax] ; T_FRACTION
 
 	shl rax, ((WORD_SIZE - TYPE_BITS) >> 1) ; move 30 bits left
-	shr rax, (((WORD_SIZE - TYPE_BITS) >> 1) + TYPE_BITS) ; move 34 bits right
+	sar rax, (((WORD_SIZE - TYPE_BITS) >> 1) + TYPE_BITS) ; move 34 bits right
 	add rax, start_of_data
 	jmp end_denominator
 
@@ -648,7 +655,7 @@
 )
 
 (define impl-+
-	(lambda (sign jmpInstruction)
+	(lambda (sign)
 		(string-append
 		"
 		mov rbx, [rbp+8*3] ; n
@@ -690,6 +697,7 @@
 		mov rdi, -1
 
 		"sign"_loop:
+		push r10
 		inc rdi
 		cmp rdi, r10 
 		je end"sign"
@@ -729,9 +737,10 @@
 		mov rcx, [rbp+8*(rdi+5)] ; second param
 		mov rbx, [rbx]
 		mov rcx, [rcx]
-
 		CAR rbx ; 1st numer
 		CDR rcx ; 2nd denom
+		DATA rbx
+		DATA rcx
 		mov rax, rbx
 		imul rcx ; res in rdx:rax
 		mov r8, rax ; r8 = 1st numer * 2nd denom
@@ -743,6 +752,8 @@
 		mov rcx, [rcx]
 		CAR rcx ; 2nd numer
 		CDR rbx ; 1st denom
+		DATA rbx
+		DATA rcx
 		mov rax, rbx
 		imul rcx ; res in rdx:rax
 		mov r9, rax ; r9 = 2nd numer * 1st denom
@@ -757,14 +768,23 @@
 		mov rcx, [rcx]
 		CDR rbx ; 1st denom
 		CDR rcx ; 2nd denom
+		DATA rbx
+		DATA rcx
 		mov rax, rbx
 		imul rcx ; res in rdx:rax
 		mov r10, rax ; r10 = 1st denom * 2nd denom
 
-		
-		
-		"jmpInstruction" not_"sign"
-		mov rax, sobTrue
+		push r10 ; denominator to simplify
+		push r8 ; numerator to simplify
+		call simplify_fraction  ; rax = address of new T_FRACTION
+		pop rbx ; just balance stack
+		pop rbx ; just balance stack
+		;mov rbx, rax ; rbx = address of new T_FRACTION
+		;SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		;mov [rax], rbx
+		mov [rbp+8*(rdi+5)], rax 
+		test:
+		pop r10
 		jmp "sign"_loop
 
 		"sign"_integers:
@@ -786,6 +806,7 @@
 		mov [rax], rbx
 		mov [rbp+8*(rdi+5)], rax 
 		
+		pop r10
 		jmp "sign"_loop
 
 		end"sign":
