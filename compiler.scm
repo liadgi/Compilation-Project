@@ -73,6 +73,185 @@
 ))
 
 
+(define gen-assembly-helpers
+	(lambda () 3
+		(print-line
+		"jmp end_assembly_helpers
+		simplify_fraction:
+		push rbp
+		mov rbp, rsp
+
+		mov rbx, [rbp+8*4] 		; the fraction
+		mov rbx, [rbx]
+		mov rcx, rbx ; take numerator
+		CAR rcx
+		mov rdx, rbx ; take denominator
+		CAR rdx
+		push rcx
+		push rdx
+		call gcd
+		pop rdx
+		pop rcx
+		; rax = T_INTEGER result
+
+
+		pop rbp
+		ret
+
+
+		fractions_greater_equal_or_less:
+		push rbp
+		mov rbp, rsp			
+		
+
+		mov rbx, [rbp+8*4] 		; the first
+		mov rcx, [rbp+8*5] 		; the second
+
+		mov rax, -1 ; left is less
+		mov rax, 0 ; equal
+		mov rax, 1 ; left is greater
+		pop rbp
+		ret
+
+
+		convert_integer_to_fraction: ; result pointer (fraction) in rax
+		push rbp
+		mov rbp, rsp
+
+	
+		; we want a fraction where the numerator is the integer,
+		; and the denominator is 1.
+
+		; set the 1 as the denominator:
+		mov rbx, 1
+		shl rbx, TYPE_BITS
+		or rbx, T_INTEGER
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rbx
+		; rax = pointer to T_INTEGER 1
+		mov rcx, rax
+
+		mov rbx, [rbp+8*2] 		; the integer address
+		; copy
+		mov rbx, [rbx]
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rbx
+		mov rbx, rax
+
+		sub rbx, start_of_data
+		mov rdx, rbx
+		shl rdx, 34
+		mov rbx, rcx
+		sub rbx, start_of_data
+		shl rbx, TYPE_BITS ;;;; CHECK THIS ONE!
+		or rdx, rbx
+		or rdx, T_FRACTION
+		; rdx = sobIntX sobInt1 T_FRACTION
+
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rdx
+
+		pop rbp
+		ret ; result pointer (fraction) in rax
+
+
+		set_params_to_fractions:
+		push rbp
+		mov rbp, rsp
+
+		mov rbx, [rbp+8*2] 		; the first
+		mov rcx, [rbp+8*3] 		; the second
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+
+		TYPE rbx
+		TYPE rcx
+		cmp rbx, T_FRACTION
+		je first_param_is_fraction
+		cmp rcx, T_FRACTION
+		je first_int_2nd_fract
+		jmp set_params_to_fractions_dont_touch ; both params are integers
+
+		first_param_is_fraction:
+		cmp rcx, T_INTEGER
+		je first_fract_2nd_int
+		jmp set_params_to_fractions_dont_touch ; both params are fractions
+
+		first_int_2nd_fract:
+		mov rax, [rbp+8*2]
+		push rax
+		call convert_integer_to_fraction ; rax = 1st param as fraction, address
+		pop r11
+		mov rbx, rax
+		mov rcx, [rbp+8*3] 		; the second
+		jmp end_set_params_to_fractions
+
+		first_fract_2nd_int:
+		mov rax, [rbp+8*3]
+		push rax
+		call convert_integer_to_fraction ; rax = 2nd param as fraction, address
+		pop r11
+		mov rbx, [rbp+8*2] 		; the first
+		mov rcx, rax
+		jmp end_set_params_to_fractions
+
+		set_params_to_fractions_dont_touch:
+		mov rbx, [rbp+8*2] 		; the first
+		mov rcx, [rbp+8*3] 		; the second
+
+		jmp end_set_params_to_fractions
+
+
+		end_set_params_to_fractions:
+
+		pop rbp
+		ret
+
+		gcd: ; num, denom
+		push rbp
+		mov rbp, rsp
+
+		;start
+		mov rax, [rbp+8*4] 		; the numerator
+		mov rax, [rax]
+		shr rax, TYPE_BITS
+		mov rbx, [rbp+8*5] 		; the denominator
+		mov rbx, [rbx]
+		shr rbx, TYPE_BITS
+
+		gcd_loop:
+		cmp rbx, 0
+		je end_gcd_loop
+		mov r10, rbx ; t = b
+
+		; b = a mod b
+		mov rdx, 0
+		div rbx ; rdx = a mod b
+		mov rbx, rdx ; b = a mod b
+
+		mov rax, r10 ; a = t
+
+		jmp gcd_loop
+		end_gcd_loop:
+
+		; res in rax
+		shl rax, TYPE_BITS
+		or rax, T_INTEGER
+
+		mov rbx, rax
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rbx
+		
+		;end
+
+		pop rbp
+		ret
+
+
+		end_assembly_helpers:
+		")
+		))
+
 
 ;write_sob_undefined:
 ;	push rbp
@@ -884,6 +1063,7 @@
 				(fvars-assembly (gen-fvars-assembly fvars)) ; Lglob_1: dq SOB_UNDEFINED, Lglob_2...
 				(section-bss (gen-section-bss))
 				(section-text (gen-section-text)) ; malloc_pointer
+				(assembly-helpers (gen-assembly-helpers))
 				(funcs-in-assembly (init-functions fvars)) ; cons, ...
 				(fake-env (gen-fake-env))
 				(funcs-in-scheme (gen-global-functions scheme-expressions constants-table fvars)) ; list, ...

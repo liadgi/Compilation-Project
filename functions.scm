@@ -1,4 +1,3 @@
-(define shave (gensym))
 (define assembly-function-names
 	(list 
 	'cons 
@@ -17,6 +16,10 @@
 	;'symbol->string
 	'set-car! ; check this out
 	'set-cdr! ; check this out
+	;'gcd
+	;'convert
+	;'set_params_to_fractions
+	;'call_set_params_to_fractions
 	)
 )
 
@@ -30,14 +33,20 @@
 		(func-frame fvars "cdr" impl-cdr)
 		(gen-predicates fvars)
 		(func-frame fvars "rational?" impl-rational?)
-		(func-frame fvars "=" impl-=)
-		(func-frame fvars "<" impl-<)
-		(func-frame fvars ">" impl->)
+		(gen-comparisons fvars)
+		;(func-frame fvars "=" impl-=)
+		;(func-frame fvars "<" impl-<)
+		;(func-frame fvars ">" impl->)
 		(func-frame fvars "not" impl-not)
 		(func-frame fvars "char->integer" impl-char->integer)
 		(func-frame fvars "integer->char" impl-integer->char)
 		(func-frame fvars "set-car!" impl-set-car!)
 		(func-frame fvars "set-cdr!" impl-set-cdr!)
+
+		;(func-frame fvars "gcd" impl-gcd)
+		;(func-frame fvars "convert" impl-convert)
+		;(func-frame fvars "set_params_to_fractions" impl-set_params_to_fractions)
+		;(func-frame fvars "call_set_params_to_fractions" impl-call_set_params_to_fractions)
 	))
 
 
@@ -72,6 +81,8 @@
 			; end function - \""name"\"
 			"
 		)))
+
+
 
 (define clean-name
 	(lambda (x)
@@ -210,260 +221,125 @@
 		))
 
 
-(define impl-=
-	"
-	mov rbx, [rbp+8*3] ; n
-	cmp rbx, 1
-	jg shave_multiple_params
-	cmp rbx, 0
-	je exit_compiler
-	mov rbx, [rbp+8*4] ; first param 	
-	mov rbx, [rbx]
-	TYPE rbx
 
-	cmp qword rbx, T_INTEGER
-	je shave_param_ok
-	cmp qword rbx, T_FRACTION
-	je shave_param_ok
-	jmp exit_compiler
+(define gen-comparisons
+	(lambda (fvars)
+		3
+		(func-frame fvars ">" (comparison-impl "greaterthan" "jle"))
+		(func-frame fvars "<" (comparison-impl "lessthan" "jge"))
+		(func-frame fvars "=" (comparison-impl "equals" "jne"))
+))
 
-	shave_param_ok:
-	mov rax, sobTrue
-	jmp endShave
+(define comparison-impl
+	(lambda (sign jmpInstruction)
+		(string-append
+		"
+		mov rbx, [rbp+8*3] ; n
+		cmp rbx, 1
+		jg "sign"_multiple_params
+		cmp rbx, 0
+		je exit_compiler
+		mov rbx, [rbp+8*4] ; first param 	
+		mov rbx, [rbx]
+		TYPE rbx
 
-	shave_multiple_params:
+		cmp qword rbx, T_INTEGER
+		je "sign"_param_ok
+		cmp qword rbx, T_FRACTION
+		je "sign"_param_ok
+		jmp exit_compiler
 
+		"sign"_param_ok:
+		mov rax, sobTrue
+		jmp end"sign"
 
-	mov r10, [rbp+8*3] ; n
-	dec r10
-	mov rdi, -1
-	shave_compare:
-	inc rdi
-	cmp rdi, r10 
-	je endShave
-
-	mov rbx, [rbp+8*(rdi+4)] 
-	mov rcx, [rbp+8*(rdi+5)]
-
-	mov rbx, [rbx]
-	mov rcx, [rcx]
-	TYPE rbx
-	TYPE rcx
-	cmp qword rbx, rcx
-	jne not_shave
-	cmp qword rbx, T_INTEGER
-	je compare_integers
-	cmp qword rbx, T_FRACTION
-	je compare_fractions
-	jmp exit_compiler
-	compare_fractions:
-	mov rbx, [rbp+8*(rdi+4)] ; first param 	
-	mov rcx, [rbp+8*(rdi+5)] ; second param
-	mov rbx, [rbx]
-	mov rcx, [rcx]
-	CAR rbx ; numer
-	CAR rcx ; numer
-	cmp rbx, rcx
-	jne not_shave
-	mov rbx, [rbp+8*(rdi+4)] ; first param 	
-	mov rcx, [rbp+8*(rdi+5)] ; second param
-	mov rbx, [rbx]
-	mov rcx, [rcx]
-	CDR rbx ; denom
-	CDR rcx ; denom
-	cmp rbx, rcx
-	jne not_shave
-	mov rax, sobTrue
-	jmp shave_compare
-
-	compare_integers:
-	mov rbx, [rbp+8*(rdi+4)] ; first param 	
-	mov rcx, [rbp+8*(rdi+5)] ; second param
-	mov rbx, [rbx]
-	mov rcx, [rcx]
-	DATA rbx
-	DATA rcx
-	cmp qword rbx, rcx
-	jne not_shave
-	mov rax, sobTrue
-	jmp shave_compare
-
-	not_shave:
-	mov rax, sobFalse
-
-	endShave:
-	"
-	)
-
-(define impl-<
-	"
-	mov rbx, [rbp+8*3] ; n
-	cmp rbx, 1
-	jg lessthan_multiple_params
-	cmp rbx, 0
-	je exit_compiler
-	mov rbx, [rbp+8*4] ; first param 	
-	mov rbx, [rbx]
-	TYPE rbx
-
-	cmp qword rbx, T_INTEGER
-	je lessthan_param_ok
-	cmp qword rbx, T_FRACTION
-	je lessthan_param_ok
-	jmp exit_compiler
-
-	lessthan_param_ok:
-	mov rax, sobTrue
-	jmp endlessthan
-
-	lessthan_multiple_params:
+		"sign"_multiple_params: ; assuming all is integer or fraction
 
 
-	mov r10, [rbp+8*3] ; n
-	dec r10
-	mov rdi, -1
-	lessthan_compare:
-	inc rdi
-	cmp rdi, r10 
-	je endlessthan
+		mov r10, [rbp+8*3] ; n
+		dec r10
+		mov rdi, -1
 
-	mov rbx, [rbp+8*(rdi+4)] 
-	mov rcx, [rbp+8*(rdi+5)]
+		"sign"_compare:
+		inc rdi
+		cmp rdi, r10 
+		je end"sign"
 
-	mov rbx, [rbx]
-	mov rcx, [rcx]
-	TYPE rbx
-	TYPE rcx
-	cmp qword rbx, rcx
-	jne not_lessthan
-	cmp qword rbx, T_INTEGER
-	je lessthan_compare_integers
-	cmp qword rbx, T_FRACTION
-	je lessthan_compare_fractions
-	jmp exit_compiler
-	lessthan_compare_fractions:
-	;mov rbx, [rbp+8*(rdi+4)] ; first param 	
-	;mov rcx, [rbp+8*(rdi+5)] ; second param
-	;mov rbx, [rbx]
-	;mov rcx, [rcx]
-	;CAR rbx ; numer
-	;CAR rcx ; numer
-	;cmp rbx, rcx
-	;jne not_lessthan
-	;mov rbx, [rbp+8*(rdi+4)] ; first param 	
-	;mov rcx, [rbp+8*(rdi+5)] ; second param
-	;mov rbx, [rbx]
-	;mov rcx, [rcx]
-	;CDR rbx ; denom
-	;CDR rcx ; denom
-	;cmp rbx, rcx
-	;jne not_lessthan
-	;mov rax, sobTrue
-	;jmp lessthan_compare
+		mov rbx, [rbp+8*(rdi+4)] 
+		mov rcx, [rbp+8*(rdi+5)]
+		push rbx
+		push rcx
+		call set_params_to_fractions ; rbx = (possibly new [rbp+8*(rdi+4)]) , rcx = (possibly new [rbp+8*(rdi+5)])
+		pop rax ; just balance stack
+		pop rax ; just balance stack
+		
+		; set the params back on the stack
+		mov [rbp+8*(rdi+4)], rcx ; rcx is first
+		mov [rbp+8*(rdi+5)], rbx ; rbx is second
 
-	lessthan_compare_integers:
-	mov rbx, [rbp+8*(rdi+4)] ; first param 	
-	mov rcx, [rbp+8*(rdi+5)] ; second param
-	mov rbx, [rbx]
-	mov rcx, [rcx]
-	DATA rbx
-	DATA rcx
-	cmp qword rbx, rcx
-	jge not_lessthan
-	mov rax, sobTrue
-	jmp lessthan_compare
-
-	not_lessthan:
-	mov rax, sobFalse
-
-	endlessthan:
-	"
-	)
-
-(define impl->
-	"
-	mov rbx, [rbp+8*3] ; n
-	cmp rbx, 1
-	jg greaterthan_multiple_params
-	cmp rbx, 0
-	je exit_compiler
-	mov rbx, [rbp+8*4] ; first param 	
-	mov rbx, [rbx]
-	TYPE rbx
-
-	cmp qword rbx, T_INTEGER
-	je greaterthan_param_ok
-	cmp qword rbx, T_FRACTION
-	je greaterthan_param_ok
-	jmp exit_compiler
-
-	greaterthan_param_ok:
-	mov rax, sobTrue
-	jmp endgreaterthan
-
-	greaterthan_multiple_params:
+		; decide if compare integers or fractions
+		mov rbx, [rbp+8*(rdi+4)] ; first param 	
+		mov rcx, [rbp+8*(rdi+5)] ; second param
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+		TYPE rbx
+		TYPE rcx
+		cmp qword rbx, rcx
+		jne "sign"_compare_fractions ;; not checking if not fraction/integer
+		cmp qword rbx, T_INTEGER
+		je "sign"_compare_integers
+		cmp qword rbx, T_FRACTION
+		je "sign"_compare_fractions
+		jmp exit_compiler
 
 
-	mov r10, [rbp+8*3] ; n
-	dec r10
-	mov rdi, -1
-	greaterthan_compare:
-	inc rdi
-	cmp rdi, r10 
-	je endgreaterthan
+		"sign"_compare_fractions:
 
-	mov rbx, [rbp+8*(rdi+4)] 
-	mov rcx, [rbp+8*(rdi+5)]
+		; first fraction
+		mov rbx, [rbp+8*(rdi+4)] ; first param 	
+		mov rcx, [rbp+8*(rdi+5)] ; second param
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+		CAR rbx ; 1st numer
+		CDR rcx ; 2nd denom
+		mov rax, rbx
+		imul rcx ; res in rdx:rax
+		mov r8, rax ; ?
 
-	mov rbx, [rbx]
-	mov rcx, [rcx]
-	TYPE rbx
-	TYPE rcx
-	cmp qword rbx, rcx
-	jne not_greaterthan
-	cmp qword rbx, T_INTEGER
-	je greaterthan_compare_integers
-	cmp qword rbx, T_FRACTION
-	je greaterthan_compare_fractions
-	jmp exit_compiler
-	greaterthan_compare_fractions:
-	;mov rbx, [rbp+8*(rdi+4)] ; first param 	
-	;mov rcx, [rbp+8*(rdi+5)] ; second param
-	;mov rbx, [rbx]
-	;mov rcx, [rcx]
-	;CAR rbx ; numer
-	;CAR rcx ; numer
-	;cmp rbx, rcx
-	;jne not_greaterthan
-	;mov rbx, [rbp+8*(rdi+4)] ; first param 	
-	;mov rcx, [rbp+8*(rdi+5)] ; second param
-	;mov rbx, [rbx]
-	;mov rcx, [rcx]
-	;CDR rbx ; denom
-	;CDR rcx ; denom
-	;cmp rbx, rcx
-	;jne not_greaterthan
-	;mov rax, sobTrue
-	;jmp greaterthan_compare
+		; second fraction
+		mov rbx, [rbp+8*(rdi+4)] ; first param 	
+		mov rcx, [rbp+8*(rdi+5)] ; second param
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+		CAR rcx ; 2nd numer
+		CDR rbx ; 1st denom
+		mov rax, rbx
+		imul rcx ; res in rdx:rax
+		mov r9, rax ; ?
 
-	greaterthan_compare_integers:
-	mov rbx, [rbp+8*(rdi+4)] ; first param 	
-	mov rcx, [rbp+8*(rdi+5)] ; second param
-	mov rbx, [rbx]
-	mov rcx, [rcx]
-	DATA rbx
-	DATA rcx
-	cmp qword rbx, rcx
-	jle not_greaterthan
-	mov rax, sobTrue
-	jmp greaterthan_compare
+		cmp r8, r9
+		"jmpInstruction" not_"sign"
+		mov rax, sobTrue
+		jmp "sign"_compare
 
-	not_greaterthan:
-	mov rax, sobFalse
+		"sign"_compare_integers:
+		mov rbx, [rbp+8*(rdi+4)] ; first param 	
+		mov rcx, [rbp+8*(rdi+5)] ; second param
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+		DATA rbx
+		DATA rcx
+		cmp qword rbx, rcx
+		"jmpInstruction" not_"sign"
+		mov rax, sobTrue
+		jmp "sign"_compare
 
-	endgreaterthan:
-	"
-	)
+		not_"sign":
+		mov rax, sobFalse
+
+		end"sign":
+	")
+		))
 
 (define impl-not
 "
@@ -593,6 +469,148 @@
 	mov qword [rcx], rbx
 	mov rax, sobVoid
 
+	"
+	)
+
+
+#;(define impl-gcd
+	"
+			;start
+			mov rax, [rbp+8*4] 		; the numerator
+			mov rax, [rax]
+			shr rax, TYPE_BITS
+			mov rbx, [rbp+8*5] 		; the denominator
+			mov rbx, [rbx]
+			shr rbx, TYPE_BITS
+
+			gcd_loop:
+			cmp rbx, 0
+			je end_gcd_loop
+			mov r10, rbx ; t = b
+
+			; b = a mod b
+			mov rdx, 0
+			div rbx ; rdx = a mod b
+			mov rbx, rdx ; b = a mod b
+
+			mov rax, r10 ; a = t
+
+			jmp gcd_loop
+			end_gcd_loop:
+
+			; res in rax
+			shl rax, TYPE_BITS
+			or rax, T_INTEGER
+
+			mov rbx, rax
+			SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+			mov [rax], rbx
+			
+			;end
+	")
+
+
+#;(define impl-convert
+	"
+			; we want a fraction where the numerator is the integer,
+			; and the denominator is 1.
+
+			; set the 1 as the denominator:
+			mov rbx, 1
+			shl rbx, TYPE_BITS
+			or rbx, T_INTEGER
+			SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+			mov [rax], rbx
+			; rax = pointer to T_INTEGER 1
+			mov rcx, rax
+
+			mov rbx, [rbp+8*4] 		; the integer address
+			; copy
+			mov rbx, [rbx]
+			SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+			mov [rax], rbx
+			mov rbx, rax
+
+			sub rbx, start_of_data
+			mov rdx, rbx
+			shl rdx, 34
+			mov rbx, rcx
+			sub rbx, start_of_data
+			shl rbx, TYPE_BITS ;;;; CHECK THIS ONE!
+			or rdx, rbx
+			or rdx, T_FRACTION
+			; rdx = sobIntX sobInt1 T_FRACTION
+
+			SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+			mov [rax], rdx
+
+	"
+	)
+
+#;(define impl-set_params_to_fractions
+		"
+		mov rbx, [rbp+8*4] 		; the first
+		mov rcx, [rbp+8*5] 		; the second
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+
+		TYPE rbx
+		TYPE rcx
+		cmp rbx, T_FRACTION
+		je first_param_is_fraction
+		cmp rcx, T_FRACTION
+		je first_int_2nd_fract
+		jmp set_params_to_fractions_dont_touch ; both params are integers
+
+		first_param_is_fraction:
+		cmp rcx, T_INTEGER
+		je first_fract_2nd_int
+		jmp set_params_to_fractions_dont_touch ; both params are fractions
+
+		first_int_2nd_fract:
+		mov rax, [rbp+8*4]
+		push rax
+		call convert_integer_to_fraction ; rax = 1st param as fraction, address
+		pop rdi
+		mov rbx, rax
+		mov rcx, [rbp+8*5] 		; the second
+		jmp end_set_params_to_fractions
+
+		first_fract_2nd_int:
+		mov rax, [rbp+8*5]
+		push rax
+		call convert_integer_to_fraction ; rax = 2nd param as fraction, address
+		pop rdi
+		mov rbx, [rbp+8*4] 		; the first
+		mov rcx, rax
+		jmp end_set_params_to_fractions
+
+		set_params_to_fractions_dont_touch:
+		mov rbx, [rbp+8*4] 		; the first
+		mov rcx, [rbp+8*5] 		; the second
+
+		jmp end_set_params_to_fractions
+
+
+		end_set_params_to_fractions:
+		;mov rax, rbx
+	")
+
+
+#;(define impl-call_set_params_to_fractions
+	"
+	mov rbx, [rbp+8*4] 
+	mov rcx, [rbp+8*5]
+
+	 push rbx
+	 push rcx
+	 call set_params_to_fractions ; rbx = (possibly new [rbp+8*(rdi+4)]) , rcx = (possibly new [rbp+8*(rdi+5)])
+	 pop rax ; just balance stack
+	 pop rax ; just balance stack
+	 test:
+
+	 ;mov rax, rbx ; second
+	 ;mov rax, rcx ; first
 	"
 	)
 

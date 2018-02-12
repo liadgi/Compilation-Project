@@ -2,6 +2,7 @@ total_tests=0
 tests_passed=0
 tests_failed=0
 for f in $(ls -v AllTests/*/tests/*.scm); do
+#for f in $(ls -v AllTests/*/tests/01-some-constants-and-sequences.scm); do
   if [ -f "out_test.c" ]; then
     rm "out_test.c"
   fi

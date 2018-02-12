@@ -10,7 +10,6 @@ integer->char
 pair?
 procedure?
 rational?
-number?
 string?
 
 Implemented* - should be verified by TAs answers, lookout the tests for more details 
@@ -18,20 +17,21 @@ car
 cdr
 set-car!
 set-cdr!
-zero?
+zero? - exception on [0 params / param not a number]
 char->integer
+< (variadic) - add nested tests - exception on [0 params / param not a number]
+= (variadic) - add nested tests - exception on [0 params / param not a number]
+> (variadic) - add nested tests - exception on [0 params / param not a number]
 
 
 Currently on progress (Liad):
 denominator
 numerator
-< (variadic)
-= (variadic)
-> (variadic)
 + (variadic)
 / (variadic)
 * (variadic)
 - (variadic)
+number?
 
 
 Not implemented yet:
