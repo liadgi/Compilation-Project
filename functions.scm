@@ -20,10 +20,99 @@
 	;'convert
 	;'set_params_to_fractions
 	;'call_set_params_to_fractions
+	'apply
 	)
 )
 
+(define set-apply
+	(lambda (labelApply labelApplyEnd fvars)
+		(let ((label (lookup-fvar-get-label 'apply fvars))
+			(looplabel (loop-label))
+			(loopEndLabel (loop-end-label))
+			(looplabel2 (loop-label))
+			(loopEndLabel2 (loop-end-label)))
+			(print-line (string-append "
+					;*******	APPLY	*******
+					mov rbx, SOB_NIL
+					SAFE_MALLOC 16
+					MAKE_LITERAL_CLOSURE rax, rbx, " labelApply"
+					jmp " labelApplyEnd"
+					"labelApply":
+					push rbp
+					mov rbp, rsp
 
+					;count n
+					mov rbx, qword[rbp+5*8]			
+					mov rbx, [rbx]		;rbx <-- s (list of parameters)
+					mov rcx, rbx		;rcx <-- backup to s
+					mov rdi, 0
+					"looplabel":
+					cmp rbx, SOB_NIL
+					je "loopEndLabel"					
+					inc rdi
+					CDR rbx
+					jmp " looplabel"
+					"loopEndLabel":
+
+					;save old rbp
+					mov r8, rbp 		;r8 <-- old rbp
+					mov r11, [r8]
+					mov rdx, rdi
+					sub rdx, 2
+					shl rdx, 3			; rdx <-- (n-2)*8 //how much to jump forward
+					sub rbp, rdx 		;rbp <-- rbp-(n-2)*8
+
+					;save f
+					mov r10, qword[r8+(4*8)]
+
+					;save old ret
+					mov r9, qword[r8+(1*8)]	;previous ret
+					mov [rbp+(1*8)], r9
+
+					;get f - code & env
+					mov r13, [r10]
+					mov rbx, r13 	;rbx <-- closure(?)
+					TYPE rbx
+					cmp rbx, T_CLOSURE
+					jne L_error_cannot_apply_non_clos
+					mov rbx, r13
+					CLOSURE_ENV rbx 	;save env
+					mov [rbp+(2*8)], rbx
+					CLOSURE_CODE r13
+
+					;push n
+					mov [rbp+(3*8)], rdi
+
+					;push args from end (4*8) to begining ((3+n)*8)
+					mov rdi, 4
+					"looplabel2":
+					cmp rcx, SOB_NIL
+					je "loopEndLabel2"
+					mov rbx, rcx
+					CAR_ADDR rbx
+					mov rdx, rdi
+					shl rdx, 3
+					mov [rbp+rdx], rbx					
+					inc rdi
+					CDR rcx
+					jmp " looplabel2"
+					"loopEndLabel2":
+
+					"
+					(debug-label)":
+					;restore old rbp
+					add rbp, 8
+					mov rsp, rbp
+					mov rbp, r11
+					jmp r13
+					
+					"labelApplyEnd":
+					mov [" label "], rax
+					mov rax, SOB_VOID
+					;*******	APPLY-END	*******
+					"))
+		))
+	)
 
 
 (define init-functions
@@ -47,6 +136,9 @@
 		;(func-frame fvars "convert" impl-convert)
 		;(func-frame fvars "set_params_to_fractions" impl-set_params_to_fractions)
 		;(func-frame fvars "call_set_params_to_fractions" impl-call_set_params_to_fractions)
+
+		(set-apply (apply-label) (apply-end-label) fvars)
+
 	))
 
 
