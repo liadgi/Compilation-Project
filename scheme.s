@@ -93,6 +93,11 @@
 	mov %1, qword [%1]
 %endmacro
 
+%macro CDR_ADDR 1
+	DATA_LOWER %1
+	add %1, start_of_data
+%endmacro
+
 ;;; MAKE_LITERAL_CLOSURE target, env, code
 %macro MAKE_LITERAL_CLOSURE 3
 	push rax

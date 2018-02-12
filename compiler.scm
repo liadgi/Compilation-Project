@@ -92,7 +92,8 @@
 		call gcd
 		pop rdx
 		pop rcx
-		; rax = T_INTEGER result
+		; rax = T_INTEGER result from gcd
+		
 
 
 		pop rbp

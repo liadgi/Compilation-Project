@@ -167,9 +167,8 @@
 	car_type_ok:
 
 	mov rbx, [rbx]
-	CAR rbx
-	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
-	mov [rax], rbx
+	CAR_ADDR rbx
+	mov rax, rbx
 	")
 
 (define impl-cdr
@@ -184,9 +183,8 @@
 	cdr_type_ok:
 
 	mov rbx, [rbx]
-	CDR rbx
-	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
-	mov [rax], rbx
+	CDR_ADDR rbx
+	mov rax, rbx
 	")
 
 (define impl-rational? ; fraction or integer
@@ -733,11 +731,12 @@
 		mov rcx, [rbp+8*(rdi+5)] ; second param
 		mov rbx, [rbx]
 		mov rcx, [rcx]
+
 		CAR rbx ; 1st numer
 		CDR rcx ; 2nd denom
 		mov rax, rbx
 		imul rcx ; res in rdx:rax
-		mov r8, rax ; ?
+		mov r8, rax ; r8 = 1st numer * 2nd denom
 
 		; second fraction
 		mov rbx, [rbp+8*(rdi+4)] ; first param 	
@@ -748,9 +747,24 @@
 		CDR rbx ; 1st denom
 		mov rax, rbx
 		imul rcx ; res in rdx:rax
-		mov r9, rax ; ?
+		mov r9, rax ; r9 = 2nd numer * 1st denom
 
-		cmp r8, r9
+		; addition of new numerators
+		add r8, r9 ; r8 = (1st numer * 2nd denom) + (2nd numer * 1st denom)
+
+		; denominator
+		mov rbx, [rbp+8*(rdi+4)] ; first param 	
+		mov rcx, [rbp+8*(rdi+5)] ; second param
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+		CDR rbx ; 1st denom
+		CDR rcx ; 2nd denom
+		mov rax, rbx
+		imul rcx ; res in rdx:rax
+		mov r10, rax ; r10 = 1st denom * 2nd denom
+
+		
+		
 		"jmpInstruction" not_"sign"
 		mov rax, sobTrue
 		jmp "sign"_loop
