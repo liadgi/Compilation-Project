@@ -18,6 +18,10 @@
 	'apply
 	'numerator
 	'denominator
+	;'+
+	;'-
+	;'*
+	;'/
 	)
 )
 
@@ -38,6 +42,11 @@
 		(set-apply (apply-label) (apply-end-label) fvars)
 		(func-frame fvars "numerator" impl-numerator)
 		(func-frame fvars "denominator" impl-denominator)
+
+		;(func-frame fvars "+" impl-+)
+		;(func-frame fvars "-" impl--)
+		;(func-frame fvars "*" impl-*)
+		;(func-frame fvars "/" impl-/)
 
 	))
 
@@ -78,8 +87,27 @@
 
 (define clean-name
 	(lambda (x)
-		(<->less (>->greater (=->equals (dash->underline (remove-exclamation-mark (arrow->to x))))))
+		(/->divide (*->multiply (-->minus (+->plus
+			(<->less (>->greater (=->equals 
+				(dash->underline (remove-exclamation-mark (arrow->to x))))))))))
 		))
+
+
+(define +->plus
+	(lambda (x)
+		(string-replace x "+" "plus")))
+
+(define -->minus
+	(lambda (x)
+		(string-replace x "-" "minus")))
+
+(define *->multiply
+	(lambda (x)
+		(string-replace x "*" "multiply")))
+
+(define /->divide
+	(lambda (x)
+		(string-replace x "/" "divide")))
 
 (define <->less
 	(lambda (x)
@@ -332,6 +360,8 @@
 		end"sign":
 	")
 		))
+
+
 
 (define impl-not
 "
@@ -621,9 +651,147 @@
 	"
 )
 
+(define impl-+
+	(lambda (sign jmpInstruction)
+		(string-append
+		"
+		mov rbx, [rbp+8*3] ; n
+		cmp rbx, 1
+		jg "sign"_multiple_params
+		cmp rbx, 0
+		je "sign"_no_params
+
+		; single param
+		mov rbx, [rbp+8*4] ; first param 	
+		mov rbx, [rbx]
+		TYPE rbx
+
+		cmp qword rbx, T_INTEGER
+		je "sign"_single_param
+		cmp qword rbx, T_FRACTION
+		je "sign"_single_param
+		jmp exit_compiler
+
+		"sign"_single_param:
+		; ============ UNIQUE PLUS IMPLEMENTATION
+		mov rax, [rbp+8*4] ; first param
+		; ============ END
+		jmp end"sign"
+
+		"sign"_no_params:
+
+		; ============ UNIQUE PLUS IMPLEMENTATION
+		; return 0
+		mov rax, sobInt0
+		; ============ END
+		jmp end"sign"		
+
+		"sign"_multiple_params: ; assuming all is integer or fraction
 
 
+		mov r10, [rbp+8*3] ; n
+		dec r10
+		mov rdi, -1
 
+		"sign"_loop:
+		inc rdi
+		cmp rdi, r10 
+		je end"sign"
+
+		mov rbx, [rbp+8*(rdi+4)] 
+		mov rcx, [rbp+8*(rdi+5)]
+		push rbx
+		push rcx
+		call set_params_to_fractions ; rbx = (possibly new [rbp+8*(rdi+4)]) , rcx = (possibly new [rbp+8*(rdi+5)])
+		pop rax ; just balance stack
+		pop rax ; just balance stack
+		
+		; set the params back on the stack
+		mov [rbp+8*(rdi+4)], rcx ; rcx is first
+		mov [rbp+8*(rdi+5)], rbx ; rbx is second
+
+		; decide if compare integers or fractions
+		mov rbx, [rbp+8*(rdi+4)] ; first param 	
+		mov rcx, [rbp+8*(rdi+5)] ; second param
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+		TYPE rbx
+		TYPE rcx
+		cmp qword rbx, rcx
+		jne "sign"_fractions ;; not checking if not fraction/integer
+		cmp qword rbx, T_INTEGER
+		je "sign"_integers
+		cmp qword rbx, T_FRACTION
+		je "sign"_fractions
+		jmp exit_compiler
+
+
+		"sign"_fractions:
+
+		; first fraction
+		mov rbx, [rbp+8*(rdi+4)] ; first param 	
+		mov rcx, [rbp+8*(rdi+5)] ; second param
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+		CAR rbx ; 1st numer
+		CDR rcx ; 2nd denom
+		mov rax, rbx
+		imul rcx ; res in rdx:rax
+		mov r8, rax ; ?
+
+		; second fraction
+		mov rbx, [rbp+8*(rdi+4)] ; first param 	
+		mov rcx, [rbp+8*(rdi+5)] ; second param
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+		CAR rcx ; 2nd numer
+		CDR rbx ; 1st denom
+		mov rax, rbx
+		imul rcx ; res in rdx:rax
+		mov r9, rax ; ?
+
+		cmp r8, r9
+		"jmpInstruction" not_"sign"
+		mov rax, sobTrue
+		jmp "sign"_loop
+
+		"sign"_integers:
+		mov rbx, [rbp+8*(rdi+4)] ; first param 	
+		mov rcx, [rbp+8*(rdi+5)] ; second param
+		mov rbx, [rbx]
+		mov rcx, [rcx]
+		DATA rbx
+		DATA rcx
+
+		; ============ UNIQUE PLUS IMPLEMENTATION
+		add rbx, rcx
+		; ============ END
+
+		shl rbx, TYPE_BITS
+		or rbx, T_INTEGER
+
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rbx
+		mov [rbp+8*(rdi+5)], rax 
+		
+		jmp "sign"_loop
+
+		end"sign":
+	")
+		))
+
+
+(define impl--
+	"
+	")
+
+(define impl-*
+	"
+	")
+
+(define impl-/
+	"
+	")
 
 
 

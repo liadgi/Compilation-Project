@@ -99,21 +99,6 @@
 		ret
 
 
-		fractions_greater_equal_or_less:
-		push rbp
-		mov rbp, rsp			
-		
-
-		mov rbx, [rbp+8*4] 		; the first
-		mov rcx, [rbp+8*5] 		; the second
-
-		mov rax, -1 ; left is less
-		mov rax, 0 ; equal
-		mov rax, 1 ; left is greater
-		pop rbp
-		ret
-
-
 		convert_integer_to_fraction: ; result pointer (fraction) in rax
 		push rbp
 		mov rbp, rsp
