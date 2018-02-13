@@ -842,23 +842,35 @@
 		(define zero? (lambda (x) (= x 0)))
 
 		(define maplist
-			(lambda (f s)
-				(if (null? (car s)) 
-					'()
-					(cons (apply f (map1 car s))
-						(maplist f (map1 cdr s))))
-			))
+			(letrec ((map1 
+						(lambda (f s)
+							(if (null? s)
+								'()
+								(cons (f (car s))
+									(map1 f (cdr s))))
+						)))
+				(lambda (f s)
+					(if (null? (car s)) 
+						'()
+						(cons (apply f (map1 car s))
+							(maplist f (map1 cdr s)))))
+				))
 
-		(define map1
-			(lambda (f s)
-				(if (null? s)
-					'()
-					(cons (f (car s))
-						(map1 f (cdr s))))
-			))
 		(define map
-			(lambda (f . s)
-				(maplist f s)))
+			(let ((maplist maplist))
+				(lambda (f . s)
+					(maplist f s))))
+
+		(define append
+			(lambda args
+				(letrec ((binary-append 
+						(lambda (x y)
+							(if (null? x)
+								y
+								(cons (car x) (binary-append (cdr x) y))))))
+				(cond ((null? args) args)
+					((null? (cdr args)) (car args))
+					(else (binary-append (car args) (apply append (cdr args))))))))
 		;(define list2 (lambda x (lambda (y) y)))
 		;(define list2 (lambda (x y . z ) z))
 		;(define complicated (lambda (x y . z) (if x (list y z (cons x z)) (list z y))))

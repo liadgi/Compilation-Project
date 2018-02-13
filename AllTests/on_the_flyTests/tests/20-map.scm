@@ -1,3 +1,7 @@
 (map list '(1 2 3) '(1 2 3))
 (map cons '(1 2 3) '(1 2 3))
 (map integer? '(1 2 #t (3 . 4) 5))
+(map (lambda (x)
+  (if (< x 5)
+    (cons x x)
+    (list x x))) '(1 2 3 4 5 6 7 8 9 10))
