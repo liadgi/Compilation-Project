@@ -40,7 +40,7 @@
 			(letrec ((build 
 				(lambda (lst table counter)
 					(if (null? lst) table
-						(if (or (boolean? (car lst)) (null? (car lst)) (and (number? (car lst)) (or (eq? (car lst) 0) (eq? (car lst) 1))))
+						(if (or (boolean? (car lst)) (null? (car lst)) (and (number? (car lst)) (or (eq? (car lst) 0) (eq? (car lst) 1) (eq? (car lst) -1))))
 							(build (cdr lst) table counter)
 							(build (cdr lst) (append table 
 								(list 
@@ -81,7 +81,8 @@
 				(list #f (+ counter 3) 'T_BOOL "sobFalse")
 				(list 0 (+ counter 4) 'T_INTEGER "sobInt0")
 				(list 1 (+ counter 5) 'T_INTEGER "sobInt1")
-				) (+ counter 6)) )
+				(list -1 (+ counter 6) 'T_INTEGER "sobIntMinus1")
+				) (+ counter 7)) )
 			)
 			
 		)

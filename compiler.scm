@@ -82,13 +82,42 @@
 		push rbp
 		mov rbp, rsp
 
-		;start
 		mov rax, [rbp+8*2] 		; the numerator
-		;mov rax, [rax]
-		;shr rax, TYPE_BITS
+		cmp rax, 1
+		je gcd_return_1
+		cmp rax, -1
+		je gcd_return_1
+
 		mov rbx, [rbp+8*3] 		; the denominator
-		;mov rbx, [rbx]
-		;shr rbx, TYPE_BITS
+		cmp rbx, 1
+		je gcd_return_1
+		cmp rbx, -1
+		je gcd_return_1
+
+		mov rax, [rbp+8*2] 		; the numerator
+		cmp rax, 0
+		jl gcd_make_numer_pos ; numer is negative
+
+		mov rbx, [rbp+8*3] 		; the denominator
+		cmp rbx, 0
+		jl gcd_make_denom_pos ; denom is negative
+
+		jmp gcd_loop
+
+		gcd_make_numer_pos:
+		mov rbx, 0
+		sub rbx, rax
+		mov rax, rbx
+
+		mov rbx, [rbp+8*3] 		; the denominator
+		cmp rbx, 0
+		jl gcd_make_denom_pos
+		jmp gcd_loop
+
+		gcd_make_denom_pos:
+		mov rdx, 0
+		sub rdx, rbx
+		mov rbx, rdx
 
 		gcd_loop:
 		cmp rbx, 0
@@ -99,22 +128,16 @@
 		mov rdx, 0
 		div rbx ; rdx = a mod b
 		mov rbx, rdx ; b = a mod b
+		check:
 
 		mov rax, r10 ; a = t
 
 		jmp gcd_loop
-		end_gcd_loop:
 
-		; res in rax
-		;shl rax, TYPE_BITS
-		;or rax, T_INTEGER
+		gcd_return_1:
+		mov rax, 1
 
-		;mov rbx, rax
-		;SAFE_MALLOC 8 ; rax = SAFE_MALLOC
-		;mov [rax], rbx
-		
-		;end
-
+		end_gcd_loop: ; rax = res 
 		pop rbp
 		ret
 
@@ -131,19 +154,38 @@
 		pop rdx
 		pop rcx
 		; rax = result from gcd
+		
 		mov rbx, rax ; rbx = gcd
+		cmp rbx, 1
+		jne simplify_divide_by_gcd
 
+		mov r8, [rbp+8*2]
+		mov r9, [rbp+8*3]
+
+		jmp simplify_skip_divide
+		simplify_divide_by_gcd:
 		; divide each by gcd (rax)
+
 		mov rax, [rbp+8*2] 		; rax = numerator
 		mov rdx, 0
-		div rbx ; rax = numerator / gcd (rax = rax / rbx)
+		cmp rax, 0
+		jg cont_div_1
+		sub rdx, 1
+		cont_div_1:
+		idiv rbx ; rax = numerator / gcd (rax = rax / rbx)
 		mov r8, rax ; simplified numerator
-
+		
 
 		mov rax, [rbp+8*3] 		; rax = denominator
 		mov rdx, 0
-		div rbx ; rax = denominator / gcd (rax = rax / rbx)
+		cmp rax, 0
+		jg cont_div_2
+		sub rdx, 1
+		cont_div_2:
+		idiv rbx ; rax = denominator / gcd (rax = rax / rbx)
 		mov r9, rax ; simplified denominator
+
+		simplify_skip_divide:
 
 		; create addresses for simplified numerator
 		mov rbx, r8
@@ -1047,7 +1089,7 @@
 (define gen-fvars-assembly
 	(lambda (fvars)
 			(print-line  ";start gen-fvars-assembly")
-			(map (lambda (fvar) 
+			(my-map (lambda (fvar) 
 				(print-line (cadr fvar) ":
 					dq SOB_UNDEFINED"))
 				fvars)

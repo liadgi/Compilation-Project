@@ -16,12 +16,13 @@
 	'set-car! ; check this out
 	'set-cdr! ; check this out
 	'apply
+
 	'numerator
 	'denominator
 	'+
-	;'-
-	;'*
-	;'/
+	'-
+	'*
+	'/
 	)
 )
 
@@ -42,17 +43,30 @@
 		(set-apply (apply-label) (apply-end-label) fvars)
 		(func-frame fvars "numerator" impl-numerator)
 		(func-frame fvars "denominator" impl-denominator)
-
-		;(func-frame fvars "+" impl-+)
-		;(func-frame fvars "-" impl--)
-		;(func-frame fvars "*" impl-*)
-		;(func-frame fvars "/" impl-/)
-
-		(func-frame fvars "+" (impl-+ "plus"))
-		
-
+		(gen-arithmetics fvars)
 	))
 
+
+(define impl-integer->string
+	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 1
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the single param
+	mov rbx, [rbx]
+	TYPE rbx
+	cmp qword rbx, T_INTEGER
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; the single param
+	mov rbx, [rbx]
+	sar rbx, TYPE_BITS
+	sal rbx, TYPE_BITS
+	or rbx, T_STRING
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rbx
+	")
 
 (define gen-func-prologue
 	(lambda (name impl skip)
@@ -325,7 +339,7 @@
 		DATA rcx
 		mov rax, rbx
 		imul rcx ; res in rdx:rax
-		mov r8, rax ; ?
+		mov r8, rax ; 
 
 		; second fraction
 		mov rbx, [rbp+8*(rdi+4)] ; first param 	
@@ -654,8 +668,498 @@
 	"
 )
 
-(define impl-+
-	(lambda (sign)
+
+
+(define gen-arithmetics
+	(lambda (fvars)
+		(func-frame fvars "+" (impl-arithmetic "plus" +_no_param-impl +_single_param-impl +_multiple_params_integers-impl (+-multiple_params_fractions-gen "plus" +_multiple_params_fractions_action) ""))
+		(func-frame fvars "-" (impl-arithmetic "minus" -_no_param-impl -_single_param-impl -_multiple_params_integers-impl (+-multiple_params_fractions-gen "minus" -_multiple_params_fractions_action) ""))
+		(func-frame fvars "*" (impl-arithmetic "multiply" *_no_param-impl *_single_param-impl *_multiple_params_integers-impl (*/multiple_params_fractions-gen *_multiple_params_fractions_action) (check_zero_loop "multiply" *_check_zero_loop)))
+		(func-frame fvars "/" (impl-arithmetic "divide" /_no_param-impl /_single_param-impl /_multiple_params_integers-impl (*/multiple_params_fractions-gen /_multiple_params_fractions_action) (check_zero_loop "divide" /_check_zero_loop)))
+))
+
+
+
+
+(define +_no_param-impl
+	"; return 0
+		mov rax, sobInt0")
+(define +_single_param-impl "mov rax, [rbp+8*4] ; first param")
+(define +_multiple_params_integers-impl "
+	add rbx, rcx
+	shl rbx, TYPE_BITS
+	or rbx, T_INTEGER
+	")
+(define +_multiple_params_fractions_action "
+	add r8, r9 ; r8 = (1st numer * 2nd denom) + (2nd numer * 1st denom)"
+)
+
+
+
+(define -_no_param-impl " jmp exit_compiler ")
+(define -_single_param-impl " ; TODO
+	; the result = 0 minus first param
+	mov rax, [rbp+8*4] ; fraction address
+	mov rax, [rax] ; T_FRACTION
+	mov rbx, rax ; T_FRACTION
+
+	mov rcx, 0
+
+	TYPE rax
+	cmp rax, T_INTEGER
+	je minus_single_param_integer
+	cmp rax, T_FRACTION
+	je minus_single_param_fraction
+	jmp exit_compiler
+
+	minus_single_param_fraction:
+	CAR rbx ; numerator (T_INTEGER)
+	DATA rbx
+	sub rcx, rbx ; rcx = 0 - rbx , numerator
+	sal rcx, TYPE_BITS
+	or rcx, T_INTEGER
+
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rcx 
+	mov rcx, rax ; rcx = new (negative) numerator, REAL address
+	sub rcx, start_of_data ; new (negative) numerator, RELATIVE address
+
+	mov rbx, [rbp+8*4] ; fraction address
+	mov rbx, [rbx] ; T_FRACTION
+	DATA_LOWER rbx ; rbx = denominator RELATIVE address
+	sal rbx, TYPE_BITS
+	mov rdx, rcx
+	sal rdx, 34
+	or rdx, rbx
+	or rdx, T_FRACTION
+	mov rbx, rdx
+
+	jmp end_minus_single_param
+	minus_single_param_integer:
+	DATA rbx
+	sub rcx, rbx ; rcx = 0 - rbx
+	mov rbx, rcx
+	sal rbx, TYPE_BITS
+	or rbx, T_INTEGER
+	
+	end_minus_single_param:
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rbx
+
+	") 
+(define -_multiple_params_integers-impl "
+	sub rbx, rcx
+	shl rbx, TYPE_BITS
+	or rbx, T_INTEGER
+	")
+(define -_multiple_params_fractions_action
+	"sub r8, r9 ; r8 = (1st numer * 2nd denom) + (2nd numer * 1st denom)"
+)
+
+
+(define +-multiple_params_fractions-gen
+	(lambda (sign action)
+		(string-append 
+		 "
+			; first fraction
+			mov rbx, [rbp+8*(rdi+4)] ; first param 	
+			mov rcx, [rbp+8*(rdi+5)] ; second param
+			mov rbx, [rbx]
+			mov rcx, [rcx]
+			CAR rbx ; 1st numer
+			CDR rcx ; 2nd denom
+			DATA rbx
+			DATA rcx
+			mov rax, rbx
+			imul rcx ; res in rdx:rax
+			mov r8, rax ; r8 = 1st numer * 2nd denom
+
+			; second fraction
+			mov rbx, [rbp+8*(rdi+4)] ; first param 	
+			mov rcx, [rbp+8*(rdi+5)] ; second param
+			mov rbx, [rbx]
+			mov rcx, [rcx]
+			CAR rcx ; 2nd numer
+			CDR rbx ; 1st denom
+			DATA rbx
+			DATA rcx
+			mov rax, rbx
+			imul rcx ; res in rdx:rax
+			mov r9, rax ; r9 = 2nd numer * 1st denom
+
+			; addition or subtraction of new numerators
+			" 
+			action 
+			"
+			cmp r8, 0
+			jne "sign"_continue
+			mov rax, sobInt0
+			jmp "sign"_endloop
+			"sign"_continue:
+
+			; denominator
+			mov rbx, [rbp+8*(rdi+4)] ; first param 	
+			mov rcx, [rbp+8*(rdi+5)] ; second param
+			mov rbx, [rbx]
+			mov rcx, [rcx]
+			CDR rbx ; 1st denom
+			CDR rcx ; 2nd denom
+			DATA rbx
+			DATA rcx
+			mov rax, rbx
+			imul rcx ; res in rdx:rax
+			mov r10, rax ; r10 = 1st denom * 2nd denom
+			")))
+
+
+(define *_no_param-impl
+	"; return 1
+		mov rax, sobInt1")
+(define *_single_param-impl "mov rax, [rbp+8*4] ; first param")
+(define *_multiple_params_integers-impl "
+	;rbx = 1st, rcx = 2nd
+	mov rax, rbx
+	imul rcx ; res in rdx:rax. rcx * rax
+	mov rbx, rax
+
+	shl rbx, TYPE_BITS
+	or rbx, T_INTEGER
+	; res in rbx
+	")
+
+(define /_multiple_params_integers-impl " ; FIX THIS
+	;rbx = 1st, rcx = 2nd
+
+	cmp rbx, 0
+	jl div_first_int_is_neg
+	cmp rcx, 0
+	jl div_second_int_is_neg
+
+	div_first_int_is_neg:
+	cmp rcx, 0
+	jl div_second_int_is_neg
+	jmp div_int_resume
+
+	div_second_int_is_neg:
+
+	mov rax, 0
+	sub rax, rbx
+	mov rbx, rax
+
+	mov rax, 0
+	sub rax, rcx
+	mov rcx, rax
+
+	div_int_resume:
+
+	; save first
+	sal rbx, TYPE_BITS
+	or rbx, T_INTEGER
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rbx
+	sub rax, start_of_data
+	sal rax, 34
+	mov rbx, rax 
+
+	; save second
+	sal rcx, TYPE_BITS
+	or rcx, T_INTEGER
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rcx 
+	sub rax, start_of_data
+	sal rax, 4
+
+	or rax, T_FRACTION
+	or rbx, rax
+	; res in rbx
+	")
+
+(define *_multiple_params_fractions_action "
+		; rax = 1st numer
+		; rbx = 2nd numer
+		; rcx = 1st denom
+		; rdx = 2nd denom
+		mov r13, rdx
+
+		; put in rax
+		imul rbx ; res in rdx:rax. rax * rbx
+		cmp rax, 0
+		jne mul_not_zero
+
+		mov rax, sobInt0
+		pop r10
+		jmp multiply_loop
+
+		mul_not_zero:
+		mov r8, rax
+
+		mov rdx, r13
+		; put in rax
+		mov rax, rcx
+		imul rdx ; res in rdx:rax. rcx * rdx
+		mov r10, rax
+
+	")
+
+
+
+
+
+(define /_no_param-impl " jmp exit_compiler ")
+(define /_single_param-impl "
+	mov rax, [rbp+8*4] ; param address
+	mov rbx, [rax]
+	TYPE rbx
+	cmp rbx, T_INTEGER ; is it integer?
+	jne divide_single_param_not_integer
+
+	; integer
+	mov rbx, [rax] ; T_INTEGER
+	DATA rbx
+	cmp rbx, 0
+	je exit_compiler
+	; integer not 0
+	cmp rbx, 0
+	jl divide_single_param_integer_negative
+	; positive
+
+	mov rcx, sobInt1
+	sub rcx, start_of_data
+	sal rcx, 34
+	mov rbx, [rax] ; T_INTEGER
+
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rbx ; T_INTEGER
+
+	sub rax, start_of_data
+	sal rax, TYPE_BITS
+	or rax, T_FRACTION
+	or rcx, rax
+
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rcx ; T_FRACTION
+
+	jmp end_divide_single_param
+
+	divide_single_param_integer_negative:
+	mov rcx, sobIntMinus1
+	sub rcx, start_of_data
+	sal rcx, 34
+	mov rax, [rax] ; T_INTEGER
+	DATA rax
+	mov rbx, 0
+	sub rbx, rax
+	sal rbx, TYPE_BITS
+	or rbx, T_INTEGER ; now its positive
+
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rbx ; T_INTEGER
+
+	sub rax, start_of_data
+	sal rax, TYPE_BITS
+	or rax, T_FRACTION
+	or rcx, rax
+
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rcx ; T_FRACTION
+
+	jmp end_divide_single_param
+
+
+	divide_single_param_not_integer: ; is it fraction?
+	cmp rbx, T_FRACTION
+	jne exit_compiler
+
+	; fraction
+
+	mov rax, [rbp+8*4] ; param address
+	mov rbx, [rax] ; T_FRACTION
+	CAR rbx
+	DATA rbx
+	cmp rbx, 0
+	je exit_compiler
+	; integer not 0
+	cmp rbx, 0
+	jl divide_single_param_fraction_negative
+	; positive - just flip
+
+	mov rax, [rax] ; T_FRACTION
+	mov rbx, rax
+	DATA_LOWER rbx
+	sal rbx, 34
+	mov rcx, rax
+	DATA_UPPER rcx
+	sal rcx, 4
+	or rcx, T_FRACTION
+	or rbx, rcx
+
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rbx ; T_FRACTION
+
+	jmp end_divide_single_param
+
+	divide_single_param_fraction_negative:
+	mov rax, [rbp+8*4] ; param address
+	mov rbx, [rax] ; T_FRACTION
+
+	; denominator
+	CDR rbx
+	DATA rbx
+	mov rdx, 0
+	sub rdx, rbx
+	sal rdx, TYPE_BITS
+	or rdx, T_INTEGER
+
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rdx ; T_INTEGER
+	mov rdx, rax
+	sub rdx, start_of_data
+	sal rdx, 34
+
+	; numerator
+	mov rax, [rbp+8*4] ; param address
+	mov rbx, [rax] ; T_FRACTION
+	CAR rbx
+	DATA rbx
+	mov rcx, 0
+	sub rcx, rbx
+	sal rcx, TYPE_BITS
+	or rcx, T_INTEGER
+
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rcx ; T_INTEGER
+	mov rcx, rax
+	sub rcx, start_of_data
+	sal rcx, TYPE_BITS
+	or rcx, T_FRACTION
+	or rdx, rcx
+
+	SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+	mov [rax], rdx ; T_FRACTION
+
+	end_divide_single_param:
+	") 
+
+
+
+	
+
+		
+(define /_multiple_params_fractions_action "
+		; rax = 1st numer
+		; rbx = 2nd numer
+		; rcx = 1st denom
+		; rdx = 2nd denom
+
+		mov r13, rdx
+
+		; put in rax
+		imul rdx ; res in rdx:rax. rax * rdx
+		;imul rbx ; res in rdx:rax. rax * rbx
+		cmp rax, 0
+		jne div_not_zero
+
+		mov rax, sobInt0
+		pop r10
+		jmp divide_loop
+
+		div_not_zero:
+		mov r8, rax
+
+		mov rdx, r13
+		; put in rax
+		mov rax, rcx
+		imul rbx ; res in rdx:rax. rbx * rcx
+		;imul rdx ; res in rdx:rax. rcx * rdx
+		mov r10, rax
+	")
+
+
+
+
+
+(define */multiple_params_fractions-gen
+	(lambda (action) 
+		(string-append
+		 "
+			mov rax, [rbp+8*(rdi+4)] ; first fraction
+			mov rax, [rax]
+			CAR rax ; rax = 1st numer
+			DATA rax
+
+			mov rbx, [rbp+8*(rdi+5)] ; second fraction
+			mov rbx, [rbx]
+			CAR rbx ; rbx = 2nd numer			
+			DATA rbx
+
+			mov rcx, [rbp+8*(rdi+4)] ; first fraction
+			mov rcx, [rcx]
+			CDR rcx ; rcx = 1st denom
+			DATA rcx
+
+			mov rdx, [rbp+8*(rdi+5)] ; second fraction
+			mov rdx, [rdx]
+			CDR rdx ; rdx = 2nd denom
+			DATA rdx
+
+			; multiply or divide new numerators. r8 - numer, r10 - denom
+			"action"
+
+			
+			")))
+
+(define *_check_zero_loop "
+	mov rax, sobInt0
+	jmp endmultiply
+	")
+(define /_check_zero_loop "jmp exit_compiler")
+
+(define check_zero_loop
+	(lambda (sign action)
+		(string-append
+			"
+			mov r10, [rbp+8*3] ; n
+			dec r10
+			mov rdi, -1
+
+			"sign"_zero_loop:
+			inc rdi
+			cmp rdi, r10 
+			je "sign"_end_zero_loop
+
+			mov rbx, [rbp+8*(rdi+4)]
+			mov rbx, [rbx]
+			mov rax, rbx
+			TYPE rax
+			cmp rax, T_INTEGER
+			je "sign"_zero_loop_int
+			cmp rax, T_FRACTION
+			je "sign"_zero_loop_frac
+			jmp "sign"_zero_loop
+			
+			"sign"_zero_loop_int:
+			mov rax, rbx
+			DATA rax
+			cmp rax, 0
+			je "sign"_has_zero_param
+			jmp "sign"_zero_loop
+
+			"sign"_zero_loop_frac:
+			mov rax, rbx
+			CAR rax
+			cmp rax, 0
+			je "sign"_has_zero_param
+			jmp "sign"_zero_loop
+
+			"sign"_has_zero_param:
+			"action"
+
+			"sign"_end_zero_loop:
+			"
+	)))
+
+(define impl-arithmetic
+	(lambda (sign no_param_impl single_param_impl multiple_params_integers_impl multiple_params_fractions_impl check_zero_loop)
 		(string-append
 		"
 		mov rbx, [rbp+8*3] ; n
@@ -676,31 +1180,31 @@
 		jmp exit_compiler
 
 		"sign"_single_param:
-		; ============ UNIQUE PLUS IMPLEMENTATION
-		mov rax, [rbp+8*4] ; first param
+		; ============ UNIQUE SINGLE PARAM IMPLEMENTATION
+		" single_param_impl "
 		; ============ END
 		jmp end"sign"
 
 		"sign"_no_params:
 
-		; ============ UNIQUE PLUS IMPLEMENTATION
-		; return 0
-		mov rax, sobInt0
+		; ============ UNIQUE NO PARAM IMPLEMENTATION
+		" no_param_impl "
 		; ============ END
 		jmp end"sign"		
 
 		"sign"_multiple_params: ; assuming all is integer or fraction
 
+		"check_zero_loop"
 
 		mov r10, [rbp+8*3] ; n
 		dec r10
 		mov rdi, -1
 
 		"sign"_loop:
-		push r10
 		inc rdi
 		cmp rdi, r10 
 		je end"sign"
+		push r10
 
 		mov rbx, [rbp+8*(rdi+4)] 
 		mov rcx, [rbp+8*(rdi+5)]
@@ -714,76 +1218,39 @@
 		mov [rbp+8*(rdi+4)], rcx ; rcx is first
 		mov [rbp+8*(rdi+5)], rbx ; rbx is second
 
-		; decide if compare integers or fractions
+		; decide if "sign" integers or fractions
 		mov rbx, [rbp+8*(rdi+4)] ; first param 	
 		mov rcx, [rbp+8*(rdi+5)] ; second param
 		mov rbx, [rbx]
 		mov rcx, [rcx]
 		TYPE rbx
 		TYPE rcx
-		cmp qword rbx, rcx
+		cmp rbx, rcx
 		jne "sign"_fractions ;; not checking if not fraction/integer
-		cmp qword rbx, T_INTEGER
+		cmp rbx, T_INTEGER
 		je "sign"_integers
-		cmp qword rbx, T_FRACTION
+		cmp rbx, T_FRACTION
 		je "sign"_fractions
 		jmp exit_compiler
 
 
 		"sign"_fractions:
 
-		; first fraction
-		mov rbx, [rbp+8*(rdi+4)] ; first param 	
-		mov rcx, [rbp+8*(rdi+5)] ; second param
-		mov rbx, [rbx]
-		mov rcx, [rcx]
-		CAR rbx ; 1st numer
-		CDR rcx ; 2nd denom
-		DATA rbx
-		DATA rcx
-		mov rax, rbx
-		imul rcx ; res in rdx:rax
-		mov r8, rax ; r8 = 1st numer * 2nd denom
+		; ============ UNIQUE IMPLEMENTATION
 
-		; second fraction
-		mov rbx, [rbp+8*(rdi+4)] ; first param 	
-		mov rcx, [rbp+8*(rdi+5)] ; second param
-		mov rbx, [rbx]
-		mov rcx, [rcx]
-		CAR rcx ; 2nd numer
-		CDR rbx ; 1st denom
-		DATA rbx
-		DATA rcx
-		mov rax, rbx
-		imul rcx ; res in rdx:rax
-		mov r9, rax ; r9 = 2nd numer * 1st denom
+		"multiple_params_fractions_impl"
 
-		; addition of new numerators
-		add r8, r9 ; r8 = (1st numer * 2nd denom) + (2nd numer * 1st denom)
+		; ============ END
 
-		; denominator
-		mov rbx, [rbp+8*(rdi+4)] ; first param 	
-		mov rcx, [rbp+8*(rdi+5)] ; second param
-		mov rbx, [rbx]
-		mov rcx, [rcx]
-		CDR rbx ; 1st denom
-		CDR rcx ; 2nd denom
-		DATA rbx
-		DATA rcx
-		mov rax, rbx
-		imul rcx ; res in rdx:rax
-		mov r10, rax ; r10 = 1st denom * 2nd denom
-
+		"sign"before_simplify_fraction:
 		push r10 ; denominator to simplify
 		push r8 ; numerator to simplify
 		call simplify_fraction  ; rax = address of new T_FRACTION
 		pop rbx ; just balance stack
 		pop rbx ; just balance stack
-		;mov rbx, rax ; rbx = address of new T_FRACTION
-		;SAFE_MALLOC 8 ; rax = SAFE_MALLOC
-		;mov [rax], rbx
+
+		"sign"_endloop:
 		mov [rbp+8*(rdi+5)], rax 
-		test:
 		pop r10
 		jmp "sign"_loop
 
@@ -795,12 +1262,9 @@
 		DATA rbx
 		DATA rcx
 
-		; ============ UNIQUE PLUS IMPLEMENTATION
-		add rbx, rcx
+		; ============ UNIQUE IMPLEMENTATION
+		" multiple_params_integers_impl "
 		; ============ END
-
-		shl rbx, TYPE_BITS
-		or rbx, T_INTEGER
 
 		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
 		mov [rax], rbx
@@ -810,21 +1274,89 @@
 		jmp "sign"_loop
 
 		end"sign":
+		mov r10, rax
+		mov rbx, [rax] ; T_INTEGER or T_FRACTION
+		TYPE rbx
+		cmp rbx, T_FRACTION
+		jne finish_"sign"
+
+		; it is a fraction
+		mov rbx, [rax] ; T_FRACTION
+		CDR rbx ; denominator
+		DATA rbx
+		cmp rbx, 1 ; if denom is 1, build integer
+		je "sign"_build_int
+		cmp rbx, 0
+		jl "sign"_denom_is_neg
+		jmp finish_"sign"
+
+		"sign"_build_int:
+		mov rbx, [rax] ; T_FRACTION
+		CAR rbx ; numerator
+		DATA rbx
+		sal rbx, TYPE_BITS
+		or rbx, T_INTEGER
+
+		mov [rax], rbx ; rax = previous SAFE_MALLOC
+		jmp finish_"sign"
+
+		"sign"_denom_is_neg:
+		; turn it positive		
+		mov rbx, [rax] ; T_FRACTION
+		CDR rbx ; denominator
+		DATA rbx
+		mov rcx, 0
+		sub rcx, rbx
+		sal rcx, TYPE_BITS
+		or rcx, T_INTEGER
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rcx ; 
+		mov rdx, rax ; rdx = positive denom address
+
+		; switch numer sign
+		mov rbx, [r10] ; T_FRACTION
+		CAR rbx ; numerator
+		DATA rbx
+		mov rcx, 0
+		sub rcx, rbx
+		sal rcx, TYPE_BITS
+		or rcx, T_INTEGER
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rcx
+		mov rcx, rax ; rcx = switched numer address
+
+		sub rcx, start_of_data
+		sal rcx, 34
+		sub rdx, start_of_data
+		sal rdx, TYPE_BITS
+		or rdx, T_FRACTION
+		or rcx, rdx
+		SAFE_MALLOC 8 ; rax = SAFE_MALLOC
+		mov [rax], rcx
+
+		mov rbx, [rax] ; T_FRACTION
+		CDR rbx ; denominator
+		DATA rbx
+		cmp rbx, 1 ; if denom is 1, build integer
+		je "sign"_build_int2
+		jmp finish_"sign"
+
+		"sign"_build_int2:
+		mov rbx, [rax] ; T_FRACTION
+		CAR rbx ; numerator
+		DATA rbx
+		sal rbx, TYPE_BITS
+		or rbx, T_INTEGER
+
+		mov [rax], rbx ; rax = previous SAFE_MALLOC
+
+
+		finish_"sign":
 	")
 		))
 
 
-(define impl--
-	"
-	")
 
-(define impl-*
-	"
-	")
-
-(define impl-/
-	"
-	")
 
 
 
@@ -832,54 +1364,43 @@
 	'(
 		(define list (lambda x x))
 		(define number? (lambda (x) (rational? x)))
-		#;(define = 
-			(lambda x
-				(let ((first (car x)) (rest (cdr x)))
-					(letrec ((run (lambda y
-									(let* ((lst (car y))
-										   (first (car lst))
-										   (rest (cdr lst)))
-									(cond ((and (null? rest) (number? first)) (shave first))
-							  		(else
-							  			(cond ((null? (cdr rest)) (shave first (car rest))) 
-							  			  (else (and (shave first (car rest))
-							  			  			 (run rest)))
-							  		)
-							  )
-							)
-										))))
-				(cond ((and (null? rest) (number? first)) (shave first)) 
-						  		(else
-						  			(cond ((null? (cdr rest)) (shave first (car rest)))
-						  			  (else (and (shave first (car rest))
-						  			  			 (run rest)))
-						  		)
-						  )
-						)
 
-					))
-			)
-		)
 		(define zero? (lambda (x) (= x 0)))
-
+		
 		(define maplist
-			(lambda (f s)
-				(if (null? (car s)) 
-					'()
-					(cons (apply f (map1 car s))
-						(maplist f (map1 cdr s))))
-			))
+			(letrec ((map1 
+						(lambda (f s)
+							(if (null? s)
+								'()
+								(cons (f (car s))
+									(map1 f (cdr s))))
+						)))
+				(lambda (f s)
+					(if (null? (car s)) 
+						'()
+						(cons (apply f (map1 car s))
+							(maplist f (map1 cdr s)))))
+				))
 
-		(define map1
-			(lambda (f s)
-				(if (null? s)
-					'()
-					(cons (f (car s))
-						(map1 f (cdr s))))
-			))
 		(define map
-			(lambda (f . s)
-				(maplist f s)))
+			(let ((maplist maplist))
+				(lambda (f . s)
+					(maplist f s))))
+
+		(define append
+			(lambda args
+				(letrec ((binary-append 
+						(lambda (x y)
+							(if (null? x)
+								y
+								(cons (car x) (binary-append (cdr x) y))))))
+				(cond ((null? args) args)
+					((null? (cdr args)) (car args))
+		(else (binary-append (car args) (apply append (cdr args))))))))
+
+		
+		
+		
 		;(define list2 (lambda x (lambda (y) y)))
 		;(define list2 (lambda (x y . z ) z))
 		;(define complicated (lambda (x y . z) (if x (list y z (cons x z)) (list z y))))
@@ -909,11 +1430,14 @@
 		(display in)
 		(newline)))
 
+
+
 (define gen-global-functions
 	(lambda (exps constants-table fvars)
-		(map (lambda (exp) 
+		(my-map (lambda (exp)
 			(let ((function-name (symbol->string (cadadr exp))))
 				(print-line ";start generating function \"" function-name "\"
+					"function-name":
 					")
 				
 				(code-gen exp constants-table 0 fvars)
