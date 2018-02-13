@@ -1398,9 +1398,6 @@
 					((null? (cdr args)) (car args))
 		(else (binary-append (car args) (apply append (cdr args))))))))
 
-		
-		
-		
 		;(define list2 (lambda x (lambda (y) y)))
 		;(define list2 (lambda (x y . z ) z))
 		;(define complicated (lambda (x y . z) (if x (list y z (cons x z)) (list z y))))

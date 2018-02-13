@@ -1130,7 +1130,6 @@
 				(funcs-in-assembly (init-functions fvars)) ; cons, ...
 				(fake-env (gen-fake-env))
 				(funcs-in-scheme (gen-global-functions scheme-expressions constants-table fvars)) ; list, ...
-
 				(code-assembly (gen-code-assembly (caddr structure) constants-table fvars))
 				(epilogue-assembly (gen-epilogue-assembly))
 				)
