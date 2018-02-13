@@ -16,6 +16,10 @@ string?
 > (variadic) - add nested tests - exception on [0 params / param not a number]
 denominator
 numerator
++ (variadic)
+/ (variadic)
+* (variadic)
+- (variadic)
 
 Implemented* - should be verified by TAs answers, lookout the tests for more details 
 car
@@ -24,12 +28,6 @@ set-car!
 set-cdr!
 zero? - exception on [0 params / param not a number]
 char->integer
-
-Currently on progress (Liad):
-+ (variadic)
-/ (variadic)
-* (variadic)
-- (variadic)
 number?
 
 
