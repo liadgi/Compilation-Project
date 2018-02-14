@@ -20,21 +20,24 @@ numerator
 / (variadic)
 * (variadic)
 - (variadic)
-
-Implemented* - should be verified by TAs answers, lookout the tests for more details 
+eq? 				 - need more tests
+map (variadic) 		 - need more tests
+append (variadic) 	 - need more tests
+apply (not variadic) - need more tests
 car
 cdr
+zero? - assuming no illegal input [0 params / param not a number]
+
+Implemented* - should be verified by TAs answers, lookout the tests for more details 
 set-car!
 set-cdr!
-zero? - exception on [0 params / param not a number]
-char->integer
+char->integer - fix the backslash thing or whatever
 number?
 
 
 Not implemented yet:
 symbol table
-append (variadic)
-apply (not variadic)
+
 make-string
 string-length
 string-ref
@@ -48,8 +51,8 @@ vector-ref
 vector-set!
 vector?
 remainder
-eq?
-map (variadic)
+
+
 symbol?
 
 

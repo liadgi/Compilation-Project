@@ -23,6 +23,8 @@
 	'-
 	'*
 	'/
+
+	'eq?
 	)
 )
 
@@ -44,8 +46,25 @@
 		(func-frame fvars "numerator" impl-numerator)
 		(func-frame fvars "denominator" impl-denominator)
 		(gen-arithmetics fvars)
+		(func-frame fvars "eq?" impl-eq?)
 	))
 
+
+(define impl-eq?
+	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 2
+	jne exit_compiler
+	mov rbx, [rbp+8*4] 		; the first param
+	mov rcx, [rbp+8*5] 		; the second param
+	mov rax, sobFalse
+	cmp rbx, rcx
+	jne eq_not_equal
+	mov rax, sobTrue
+	
+	eq_not_equal:
+	"
+)
 
 (define impl-integer->string
 	"
@@ -244,7 +263,6 @@
 			(func-frame fvars "char?" (predicate-impl "T_CHAR"))
 			(func-frame fvars "integer?" (predicate-impl "T_INTEGER"))
 			(func-frame fvars "null?" (predicate-impl "T_NIL"))
-			;(func-frame fvars "number?" (predicate-impl "T_NUMBER"))
 			(func-frame fvars "pair?" (predicate-impl "T_PAIR"))
 			(func-frame fvars "procedure?" (predicate-impl "T_CLOSURE"))
 			(func-frame fvars "string?" (predicate-impl "T_STRING"))
