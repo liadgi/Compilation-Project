@@ -1129,7 +1129,7 @@
 				(assembly-helpers (gen-assembly-helpers))
 				(funcs-in-assembly (init-functions fvars)) ; cons, ...
 				(fake-env (gen-fake-env))
-				(funcs-in-scheme (gen-global-functions scheme-expressions constants-table fvars)) ; list, ...
+				;(funcs-in-scheme (gen-global-functions scheme-expressions constants-table fvars)) ; list, ...
 				(code-assembly (gen-code-assembly (caddr structure) constants-table fvars))
 				(epilogue-assembly (gen-epilogue-assembly))
 				)
@@ -1142,7 +1142,7 @@
 
 (define compile-scheme-file
 	(lambda (file output-file)
-		(let* ((asts (pipeline (file->list file)))
+		(let* ((asts (append scheme-expressions (pipeline (file->list file))))
 			   (const-table (build-constants-table (append asts scheme-expressions)))
 			   (fvars-table (label-fvars '() (get-fvars-list asts)))
 			   )

@@ -25,6 +25,14 @@
 	'/
 
 	'eq?
+	'list->vector
+	'vector-length
+	'vector-ref
+	'vector-set!
+	'list->string
+	'string-length
+	'string-ref
+	'string-set!
 	)
 )
 
@@ -47,6 +55,14 @@
 		(func-frame fvars "denominator" impl-denominator)
 		(gen-arithmetics fvars)
 		(func-frame fvars "eq?" impl-eq?)
+		(func-frame fvars "list->vector" (impl-list->vector (listtovec-loop-label) (listtovec-loop-end-label)))
+		(func-frame fvars "vector-length" impl-vector-length)
+		(func-frame fvars "vector-ref" impl-vector-ref)
+		(func-frame fvars "vector-set!" impl-vector-set!)
+		(func-frame fvars "list->string" (impl-list->string (listtostr-loop-label) (listtostr-loop-end-label)))
+		(func-frame fvars "string-length" impl-string-length)
+		(func-frame fvars "string-ref" impl-string-ref)
+		(func-frame fvars "string-set!" impl-string-set!)
 	))
 
 
@@ -686,8 +702,6 @@
 	"
 )
 
-
-
 (define gen-arithmetics
 	(lambda (fvars)
 		(func-frame fvars "+" (impl-arithmetic "plus" +_no_param-impl +_single_param-impl +_multiple_params_integers-impl (+-multiple_params_fractions-gen "plus" +_multiple_params_fractions_action) ""))
@@ -695,9 +709,6 @@
 		(func-frame fvars "*" (impl-arithmetic "multiply" *_no_param-impl *_single_param-impl *_multiple_params_integers-impl (*/multiple_params_fractions-gen *_multiple_params_fractions_action) (check_zero_loop "multiply" *_check_zero_loop)))
 		(func-frame fvars "/" (impl-arithmetic "divide" /_no_param-impl /_single_param-impl /_multiple_params_integers-impl (*/multiple_params_fractions-gen /_multiple_params_fractions_action) (check_zero_loop "divide" /_check_zero_loop)))
 ))
-
-
-
 
 (define +_no_param-impl
 	"; return 0
@@ -711,8 +722,6 @@
 (define +_multiple_params_fractions_action "
 	add r8, r9 ; r8 = (1st numer * 2nd denom) + (2nd numer * 1st denom)"
 )
-
-
 
 (define -_no_param-impl " jmp exit_compiler ")
 (define -_single_param-impl " ; TODO
@@ -774,7 +783,6 @@
 	"sub r8, r9 ; r8 = (1st numer * 2nd denom) + (2nd numer * 1st denom)"
 )
 
-
 (define +-multiple_params_fractions-gen
 	(lambda (sign action)
 		(string-append 
@@ -828,7 +836,6 @@
 			imul rcx ; res in rdx:rax
 			mov r10, rax ; r10 = 1st denom * 2nd denom
 			")))
-
 
 (define *_no_param-impl
 	"; return 1
@@ -918,10 +925,6 @@
 		mov r10, rax
 
 	")
-
-
-
-
 
 (define /_no_param-impl " jmp exit_compiler ")
 (define /_single_param-impl "
@@ -1057,11 +1060,6 @@
 
 	end_divide_single_param:
 	") 
-
-
-
-	
-
 		
 (define /_multiple_params_fractions_action "
 		; rax = 1st numer
@@ -1091,10 +1089,6 @@
 		;imul rdx ; res in rdx:rax. rcx * rdx
 		mov r10, rax
 	")
-
-
-
-
 
 (define */multiple_params_fractions-gen
 	(lambda (action) 
@@ -1374,9 +1368,194 @@
 		))
 
 
+(define impl-list->vector
+	(lambda (looplabel loopendlabel)
+		(string-append
+		"
+		mov rbx, [rbp+8*4] 		;args
+		mov rdi, [rbp+8*5]		;n
+		mov rdi, [rdi]
+		DATA rdi
+		mov rbx, [rbx] 			;rbx <- list of args
+		mov r8, rdi				;n backup
+		shl rdi, 3 				;rdi <- rdi*8
+		SAFE_MALLOC rdi			;malloc(n*8)
+		mov rdx, 0
+		"looplabel":
+		cmp rdi, 0
+		je " loopendlabel"
+		mov rcx, rbx
+		CAR_ADDR rcx
+		CDR rbx
+		sub rdi, 8
+		;insert pointer of element to vector-pointer
+		mov qword[rax+rdx], rcx
+		add rdx, 8
+		jmp " looplabel"
+		"loopendlabel":
+		MAKE_VECTOR r8, rax
+		SAFE_MALLOC 8
+		mov [rax], r8
+		"
+	)))
+
+(define impl-vector-length
+	"
+	mov rbx, [rbp+8*4] 		;vector pointer
+	mov rbx, [rbx]
+	VECTOR_LENGTH rbx
+	shl rbx, TYPE_BITS
+	or rbx, T_INTEGER
+	SAFE_MALLOC 8
+	mov [rax], rbx
+	")
+
+(define impl-vector-ref
+	"
+	mov rbx, [rbp+8*4] 		;vector pointer
+	mov rbx, [rbx]
+	mov rdx, [rbp+8*5]		;index
+	mov rdx, [rdx]
+	DATA rdx
+	;SAFE_MALLOC 8
+	VECTOR_REF rcx, rbx, rdx
+	mov rax, rcx
+	")
+
+(define impl-vector-set!
+	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 3
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; vector
+	mov rbx, [rbx]
+	TYPE rbx
+	cmp qword rbx, T_VECTOR
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; vector
+	mov rbx, [rbx]
+	mov rcx, [rbp+8*5] 		; index
+	mov rcx, [rcx]
+	DATA rcx
+
+	mov rdx, [rbp+8*6]		; val
+	; mov rdx, [rdx]
+	; DATA rdx
+
+	VECTOR_ELEMENTS rbx
+	shl rcx, 3 				; rcx <- rcx*8
+	mov [rbx+rcx], rdx
 
 
+	mov rcx, [rbp+8*4]		;vector
+	mov rcx, [rcx]
+	VECTOR_LENGTH rcx
+	shl rcx, 30
+	or rcx, rbx
+	shl rcx, TYPE_BITS
+	or rcx, T_VECTOR
 
+	mov [rbp+8*4], rcx
+	mov rax, sobVoid
+	")
+
+(define impl-list->string
+	(lambda (looplabel loopendlabel)
+		(string-append
+		"
+		mov rbx, [rbp+8*4] 		;args (list)
+		mov rdi, [rbp+8*5]		;n (length)
+		mov rdi, [rdi]
+		DATA rdi
+		mov rbx, [rbx] 			;rbx <- list of args
+		mov r8, rdi				;n backup
+		SAFE_MALLOC rdi			;malloc
+		mov rdx, 0
+		"looplabel":
+		cmp rdi, 0
+		je " loopendlabel"
+		mov rcx, rbx
+		CAR rcx
+		DATA rcx
+		CDR rbx
+		dec rdi
+		;insert pointer of element to vector-pointer
+		mov byte[rax+rdx], cl
+		inc rdx
+		jmp " looplabel"
+		"loopendlabel":
+		MAKE_STRING r8, rax
+		SAFE_MALLOC 8
+		mov [rax], r8
+		"
+	)))
+
+(define impl-string-length
+	"
+	mov rbx, [rbp+8*4] 		;string pointer
+	mov rbx, [rbx]
+	STRING_LENGTH rbx
+	shl rbx, TYPE_BITS
+	or rbx, T_INTEGER
+	SAFE_MALLOC 8
+	mov [rax], rbx
+	")
+
+(define impl-string-ref
+	"
+	mov rbx, [rbp+8*4] 		;string pointer
+	mov rbx, [rbx]
+	mov rdx, [rbp+8*5]		;index
+	mov rdx, [rdx]
+	DATA rdx
+	mov rcx, 0
+	STRING_REF cl, rbx, rdx
+	shl rcx, TYPE_BITS
+	or rcx, T_CHAR
+	SAFE_MALLOC 8
+	mov [rax], rcx
+	")
+
+(define impl-string-set!
+	"
+	mov rbx, [rbp+8*3] ; n
+	cmp rbx, 3
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; string
+	mov rbx, [rbx]
+	TYPE rbx
+	cmp qword rbx, T_STRING
+	jne exit_compiler
+
+	mov rbx, [rbp+8*4] 		; string
+	mov rbx, [rbx]
+	mov rcx, [rbp+8*5] 		; index
+	mov rcx, [rcx]
+	DATA rcx
+
+	mov rdx, [rbp+8*6]		; val
+	mov rdx, [rdx]
+	DATA rdx
+	;;
+
+	STRING_ELEMENTS rbx
+	mov byte[rbx+rcx], dl
+
+
+	mov rcx, [rbp+8*4]		;string
+	mov rcx, [rcx]
+	STRING_LENGTH rcx
+	shl rcx, 30
+	or rcx, rbx
+	shl rcx, TYPE_BITS
+	or rcx, T_STRING
+
+	mov [rbp+8*4], rcx
+	mov rax, sobVoid
+	")
 
 (define scheme-functions
 	'(
@@ -1414,8 +1593,62 @@
 								(cons (car x) (binary-append (cdr x) y))))))
 				(cond ((null? args) args)
 					((null? (cdr args)) (car args))
-		(else (binary-append (car args) (apply append (cdr args))))))))
+					(else (binary-append (car args) (apply append (cdr args))))))))
 
+		(define list-length
+			(lambda (lst)
+				(if (null? lst) 0 (+ 1 (list-length (cdr lst))))))
+
+		(define vector
+			(let ((list->vector list->vector)
+					(length list-length))
+				(lambda args
+					(let ((n (length args)))
+					(list->vector args n)))))
+
+
+		(define make-list-vec
+			(lambda (len val)
+				(letrec ((run 
+							(lambda (len val lst)
+								(if (zero? len)
+									lst
+									(cons val (run (- len 1) val lst))))))
+					(run len val '()))))
+
+
+		(define make-vector
+			(let ((list->vector list->vector)
+				(make-list-vec make-list-vec))
+				(lambda (len . val)
+					(if (null? val)
+						(list->vector (make-list-vec len 0) len)
+						(list->vector (make-list-vec len (car val)) len)
+				))))
+
+		(define neg 
+			(lambda (x) (- 0 x)))
+
+		(define remainder
+			(let ((neg neg))
+			(lambda (x y)
+				(if (< x 0) 
+					(if (< y 0)
+						(if (< x y) (remainder (- x y) y) x)
+						(if (> (neg x) y) (remainder (+ x y) y) x))
+					; x > 0
+					(if (< y 0)
+						(if (< x (neg y)) x (remainder (+ x y) y))
+						(if (< x y) x (remainder (- x y) y)))))))
+
+		(define make-string
+			(let ((list->string list->string)
+				(make-list-str make-list-vec))
+				(lambda (len . val)
+					(if (null? val)
+						(list->string (make-list-str len 0) len)
+						(list->string (make-list-str len (car val)) len)
+				))))
 		;(define list2 (lambda x (lambda (y) y)))
 		;(define list2 (lambda (x y . z ) z))
 		;(define complicated (lambda (x y . z) (if x (list y z (cons x z)) (list z y))))

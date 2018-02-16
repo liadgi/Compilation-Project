@@ -27,6 +27,18 @@ apply (not variadic) - need more tests
 car
 cdr
 zero? - assuming no illegal input [0 params / param not a number]
+make-string
+string-length
+string-ref
+string-set!
+make-vector
+vector
+vector-length
+vector-ref
+vector-set!
+vector?
+remainder
+
 
 Implemented* - should be verified by TAs answers, lookout the tests for more details 
 set-car!
@@ -38,21 +50,8 @@ number?
 Not implemented yet:
 symbol table
 
-make-string
-string-length
-string-ref
-string-set!
 symbol->string
 string->symbol
-make-vector
-vector
-vector-length
-vector-ref
-vector-set!
-vector?
-remainder
-
-
 symbol?
 
 

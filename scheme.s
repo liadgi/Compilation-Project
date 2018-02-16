@@ -154,11 +154,29 @@
 	pop rax
 %endmacro
 
+;; MAKE_STRING length, pointer_to_string
+%macro MAKE_STRING 2
+	shl %1, 34
+	sub %2, start_of_data
+	shl %2, 4
+	or %1, %2
+	or %1, T_STRING
+%endmacro
+
 %macro MAKE_LITERAL_VECTOR 1+
 	dq ((((((%%VecEnd - %%Vec) >> 3) << ((WORD_SIZE - TYPE_BITS) >> 1)) | (%%Vec - start_of_data)) << TYPE_BITS) | T_VECTOR)
 	%%Vec:
 	dq %1
 	%%VecEnd:
+%endmacro
+
+;; MAKE_VECTOR length, pointer_to_vector
+%macro MAKE_VECTOR 2
+	shl %1, 34
+	sub %2, start_of_data
+	shl %2, 4
+	or %1, %2
+	or %1, T_VECTOR
 %endmacro
 
 %macro VECTOR_LENGTH 1
@@ -177,7 +195,7 @@
 	VECTOR_ELEMENTS %1
 	lea %1, [%1 + %3*8]
 	mov %1, qword [%1]
-	mov %1, qword [%1]
+	;mov %1, qword [%1]
 %endmacro
 
 %define SOB_UNDEFINED MAKE_LITERAL(T_UNDEFINED, 0)
@@ -338,7 +356,7 @@ section .data
 .special:
 	db "#\x%02x", 0
 .regular:
-	db "#\\%c", 0
+	db "#\%c", 0
 
 write_sob_void:
 	push rbp

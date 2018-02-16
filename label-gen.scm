@@ -57,3 +57,15 @@
 
 (define apply-end-label
 	(^make_label "L_apply_end"))
+
+(define listtovec-loop-label
+	(^make_label "Llsttovec_loop"))
+
+(define listtovec-loop-end-label
+	(^make_label "Llsttovec_loop_end"))
+
+(define listtostr-loop-label
+	(^make_label "Llsttostr_loop"))
+
+(define listtostr-loop-end-label
+	(^make_label "Llsttostr_loop_end"))
