@@ -21,7 +21,7 @@
 
 (define basic? 
 	(lambda (x)
-		(or (null? x) (integer? x) (string? x) (boolean? x) (char? x) (symbol? x))))
+		(or (null? x) (integer? x) (string? x) (boolean? x) (char? x))))
 
 (define all-consts
 	(lambda (lst)
@@ -31,7 +31,7 @@
 			((vector? (car lst)) (append (all-consts (vector->list (car lst))) `(,(car lst)) (all-consts (cdr lst))))
 			((pair? (car lst)) (append (parse-pair-helper (car lst)) (all-consts (cdr lst))))
 			((rational? (car lst)) (append `(,(numerator (car lst))) `(,(denominator (car lst))) `(,(car lst)) (all-consts (cdr lst))))
-				
+			((symbol? (car lst)) (append `(,(symbol->string (car lst))) `(,(car lst)) (all-consts (cdr lst))))
 			)
 ))
 
@@ -68,6 +68,11 @@
 										  		(label-counter (number->string counter)))
 										  		`(,atom ,counter T_FRACTION ,(string-append "sobFraction" label-counter) ,numer ,denom)
 										  	))
+										  ((symbol? atom)
+										  	(let ((str (lookup-constant-get-label (symbol->string atom) table))
+											   		(label-counter (number->string counter))
+											   		(next (update-last-symbol (string-append "sobSymbol" label-counter))))
+												`(,atom ,counter T_SYMBOL ,(string-append "sobSymbol" label-counter) ,str ,next)))
 										  (else (display-error "create-records: value" atom " does not fit any type"))
 										)
 								)))
@@ -88,6 +93,13 @@
 		)
 	)
 
+(define next-symbol-label "sobNil")
+
+(define update-last-symbol
+	(lambda (label)
+		(let ((prev next-symbol-label))
+			(set! next-symbol-label label)
+			prev)))
 
 (define build-constants-table
 	(lambda (exp)

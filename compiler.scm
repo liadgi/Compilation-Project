@@ -430,6 +430,13 @@
 			(print-tabbed-line "dq MAKE_LITERAL_FRACTION(" first ", " second ")")
 		)))
 
+(define gen-symbol
+	(lambda (label rest)
+		(let ((str (car rest))
+			(next (cadr rest)))
+			(print-line label ":")
+			(print-tabbed-line "dq MAKE_LITERAL_SYMBOL(" str ", " next ")")
+		)))
 
 
 (define gen-constants-assembly
@@ -455,6 +462,7 @@
 							  ((eq? type 'T_VECTOR) (gen-make-literal-vector label rest))
 							  ((eq? type 'T_FRACTION) (gen-make-literal-fraction label rest))
 							  ((eq? type 'T_STRING) (gen-make-literal-string value label))
+							  ((eq? type 'T_SYMBOL) (gen-symbol label rest))
 							  (else (display-error "gen-constants-assembly: type " type " does not exist")))
 
 						)
@@ -464,16 +472,14 @@
 				)
 				)))
 		(gen table))
+		(print-line "symbol_head:")
+		(print-line "dq 0")
 		(print-line ";end gen-constants-assembly
 			")
 		
 		)
 )
 
-#;(define symbol-gen
-	(lambda (...)
-
-))
 
 
 (define gen-section-bss
@@ -513,6 +519,8 @@
 			(print-line "main:
 				mov rax, malloc_pointer
 				mov qword [rax], start_of_memory")
+			(print-line (string-append 
+				"mov qword[symbol_head], " next-symbol-label))
 			)
 ))
 
@@ -1123,6 +1131,7 @@
 
 				(prologue-assembly (gen-prologue-assembly)) ; include scheme.s, section data, start of data
 				(constants-assembly (gen-constants-assembly constants-table)) ; sobNil: dq SOB_NIL, sobVoid...
+
 				(fvars-assembly (gen-fvars-assembly fvars)) ; Lglob_1: dq SOB_UNDEFINED, Lglob_2...
 				(section-bss (gen-section-bss))
 				(section-text (gen-section-text)) ; malloc_pointer
