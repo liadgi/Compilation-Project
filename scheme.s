@@ -109,6 +109,16 @@
 	or %1, T_SYMBOL
 %endmacro
 
+%macro SYMBOL_STRING 1
+	DATA_UPPER %1
+	add %1, start_of_data
+%endmacro
+
+%macro NEXT_SYMBOL 1
+	DATA_LOWER %1
+	add %1, start_of_data
+%endmacro
+
 ;;; MAKE_LITERAL_CLOSURE target, env, code
 %macro MAKE_LITERAL_CLOSURE 3
 	push rax

@@ -33,6 +33,8 @@
 	'string-length
 	'string-ref
 	'string-set!
+	'symbol->string
+	'string->symbol
 	)
 )
 
@@ -63,6 +65,8 @@
 		(func-frame fvars "string-length" impl-string-length)
 		(func-frame fvars "string-ref" impl-string-ref)
 		(func-frame fvars "string-set!" impl-string-set!)
+		(func-frame fvars "symbol->string" impl-symbol->string)
+		(func-frame fvars "string->symbol" impl-string->symbol)
 	))
 
 
@@ -1555,6 +1559,87 @@
 
 	mov [rbp+8*4], rcx
 	mov rax, sobVoid
+	")
+
+(define impl-symbol->string
+"
+	mov rbx, [rbp+8*4] 		; symbol
+
+	mov rax, [rbx]
+	TYPE rax
+	cmp qword rax, T_SYMBOL
+	je sym_type_ok
+	jmp exit_compiler
+	sym_type_ok:
+
+	mov rax, [rbx]
+	CAR_ADDR rax
+	")
+
+(define impl-string->symbol
+	"
+	mov rbx, [rbp+8*4] 		; string
+	mov rbx, [rbx]
+	mov rax, rbx
+	TYPE rax
+	cmp rax, T_STRING
+	jne exit_compiler
+
+	;find if symbol exist
+	mov rax, [symbol_head]
+	mov rdx, rbx
+	STRING_LENGTH rdx 		; rdx <-- length(str)
+
+	find_symbol_loop:
+	cmp rax, sobNil
+	je create_new_symbol
+	mov r11, [rax]
+	mov rcx, r11 			; rcx, r11 <-- symbol in list
+	SYMBOL_STRING rcx 		; rcx <-- string of symbol in list
+	blaa:
+	mov rcx, [rcx]
+	compare_strings:
+	mov r8, rcx
+	STRING_LENGTH r8
+	bla:
+	cmp r8, rdx
+	jne compare_next_symbol
+	;comparing chars of strings 
+	mov r9, r8				; r9 <-- strings length
+	mov r10, rbx
+	STRING_ELEMENTS r10
+	mov r8, rcx
+	STRING_ELEMENTS r8
+	mov rdi, 0
+	
+	comparing_chars_loop: 
+	cmp rdi, r9				; reached the end of the strings
+	je found_symbol
+	mov byte dl, [r10+rdi]
+	cmp byte dl, [r8+rdi]
+	jne compare_next_symbol
+	inc rdi 
+	jmp comparing_chars_loop
+
+	compare_next_symbol:
+	NEXT_SYMBOL r11
+	mov rax, r11
+	jmp find_symbol_loop
+
+	create_new_symbol:
+	mov rbx, [rbp+8*4]
+	mov rcx, [symbol_head]
+	MAKE_SYMBOL rbx, rcx
+	SAFE_MALLOC 8
+	mov [rax], rbx
+	mov [symbol_head], rax
+	jmp return_symbol
+
+	found_symbol:
+	;rax holds the symbol
+
+	return_symbol:
+
 	")
 
 (define scheme-functions
