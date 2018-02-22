@@ -41,8 +41,6 @@ remainder
 
 
 Implemented* - should be verified by TAs answers, lookout the tests for more details 
-set-car!
-set-cdr!
 char->integer - fix the backslash thing or whatever
 number?
 
