@@ -3,3 +3,5 @@ test.s
 test.scm
 *.o
 Makefile~
+*.zip
+run_tests.sh
