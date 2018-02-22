@@ -1,0 +1,1 @@
+(eq? '#(vector) '#(list))

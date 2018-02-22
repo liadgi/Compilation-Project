@@ -3,3 +3,4 @@ test.s
 test.scm
 *.o
 Makefile~
+*.zip
