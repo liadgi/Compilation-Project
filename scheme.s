@@ -55,11 +55,11 @@
 %endmacro
 
 %macro DATA_UPPER 1
-	sar %1, (((WORD_SIZE - TYPE_BITS) >> 1) + TYPE_BITS)
+	shr %1, (((WORD_SIZE - TYPE_BITS) >> 1) + TYPE_BITS)
 %endmacro
 
 %macro DATA_LOWER 1
-	sal %1, ((WORD_SIZE - TYPE_BITS) >> 1)
+	shl %1, ((WORD_SIZE - TYPE_BITS) >> 1)
 	DATA_UPPER %1
 %endmacro
 
