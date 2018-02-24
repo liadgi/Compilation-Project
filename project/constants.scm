@@ -13,7 +13,7 @@
 		(cond ((basic? lst) lst)
 			((basic? (car lst)) (append `(,(car lst)) (all-consts `(,(cdr lst))) `(,lst)))
 			((vector? (car lst)) (append (all-consts `(,(car lst))) (all-consts `(,(cdr lst))) `(,lst)))
-				
+			((symbol? (car lst)) (append (all-consts `(,(car lst))) (all-consts `(,(cdr lst))) `(,lst)))
 			((list? (car lst)) (append (all-consts (car lst)) (parse-list-helper (car lst)) `(,(parse-pair-helper (cdr lst))) `(,lst)))
 			;((rational? (car lst)) (append (all-consts (numerator (car lst))) `(,(parse-list-helper (denominator (car lst)))) `(,(car lst))))
 			)
