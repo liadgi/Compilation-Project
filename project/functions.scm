@@ -1603,8 +1603,8 @@
 
 	;find if symbol exist
 	mov rax, [symbol_head]
-	mov rdx, rbx
-	STRING_LENGTH rdx 		; rdx <-- length(str)
+	mov r12, rbx
+	STRING_LENGTH r12 		; r12 <-- length(str)
 
 	find_symbol_loop:
 	cmp rax, sobNil
@@ -1612,13 +1612,12 @@
 	mov r11, [rax]
 	mov rcx, r11 			; rcx, r11 <-- symbol in list
 	SYMBOL_STRING rcx 		; rcx <-- string of symbol in list
-	blaa:
 	mov rcx, [rcx]
 	compare_strings:
 	mov r8, rcx
 	STRING_LENGTH r8
-	bla:
-	cmp r8, rdx
+	blaa:
+	cmp r8, r12
 	jne compare_next_symbol
 	;comparing chars of strings 
 	mov r9, r8				; r9 <-- strings length
@@ -1640,6 +1639,7 @@
 	compare_next_symbol:
 	NEXT_SYMBOL r11
 	mov rax, r11
+	bla:
 	jmp find_symbol_loop
 
 	create_new_symbol:
