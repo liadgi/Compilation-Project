@@ -1750,6 +1750,13 @@
 						(list->string (make-list-str len 0) len)
 						(list->string (make-list-str len (car val)) len)
 				))))
+
+		(define eq? 
+			(let ((assembly-eq? eq?))
+				(lambda (x y)
+					(if (and (number? x) (number? y))
+						(= x y)
+						(assembly-eq? x y)))))
 		;(define list2 (lambda x (lambda (y) y)))
 		;(define list2 (lambda (x y . z ) z))
 		;(define complicated (lambda (x y . z) (if x (list y z (cons x z)) (list z y))))

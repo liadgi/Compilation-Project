@@ -162,3 +162,14 @@
 			(if (null? veclst) lst
 				(get-vector-refs (cdr veclst) (append lst `(,(lookup-constant-get-label (car veclst) table))) table))
 ))
+
+(define list-to-string
+    (lambda (l)
+	    (letrec ((run (lambda (lst str)
+	      (if (null? lst) str
+	          (run (cdr lst) (string-append str ", " (number->string (car lst))))))))
+      (if (null? l) "" (run (cdr l) (number->string (car l)))))))
+
+(define string->hexLst
+	(lambda (str)
+		(list-to-string (map char->integer (string->list str)))))

@@ -1,7 +1,7 @@
 ; test 77
 (define foo8 (lambda (x y) (
                             begin
-                            (set! y x)
+                            (define y x)
                             (+ y x))
                  )
     )
@@ -10,7 +10,7 @@
 ; test 78
 (define foo9 (lambda (x y) (
                             begin
-                            (set! y x)
+                            (define y x)
                             (= y x))
                  )
     )

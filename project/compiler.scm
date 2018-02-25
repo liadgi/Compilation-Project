@@ -417,7 +417,9 @@
 (define gen-make-literal-string
 	(lambda (value label)
 					(print-line label ":")
-					(print-tabbed-line "MAKE_LITERAL_STRING \"" value "\"")
+					(if (= 0 (string-length value))
+						(print-tabbed-line "MAKE_LITERAL_STRING \"" value "\"")
+						(print-tabbed-line (string-append "MAKE_LITERAL_STRING " (string->hexLst value))))
 		))
 
 
@@ -1086,9 +1088,9 @@
 			  ((eq? (car ast) 'lambda-simple) (lambda-simple-gen (cdr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'applic) (applic-gen (cdr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'pvar) (pvar-gen (cdr ast)))
-			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'pvar)) (set-pvar-gen (cdr ast) constants-table major fvars-table))
+			  ((and (or (eq? (car ast) 'set) (eq? (car ast) 'define)) (eq? (caadr ast) 'pvar)) (set-pvar-gen (cdr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'bvar) (bvar-gen (cdr ast)))
-			  ((and (eq? (car ast) 'set) (eq? (caadr ast) 'bvar)) (set-bvar-gen (cdr ast) constants-table major fvars-table))
+			  ((and (or (eq? (car ast) 'set) (eq? (car ast) 'define)) (eq? (caadr ast) 'bvar)) (set-bvar-gen (cdr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'fvar) (fvar-gen (cadr ast) fvars-table))
 			  ((and (or (eq? (car ast) 'set) (eq? (car ast) 'define)) (eq? (caadr ast) 'fvar)) (set-fvar-gen (cdr ast) constants-table major fvars-table))
 			  ((eq? (car ast) 'lambda-opt) (lambda-opt-gen (cdr ast) constants-table major fvars-table))
