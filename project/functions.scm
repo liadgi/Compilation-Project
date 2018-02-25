@@ -191,10 +191,10 @@
 
 (define func-frame
 	(lambda (fvars name func)
-		(let* ((cln-name (clean-name name))
+		(let* (
 			  (label (lookup-fvar-get-label (string->symbol name) fvars))
-			  (impl (string-append cln-name "_label"))
-			  (skip (string-append cln-name "_end_label")))
+			  (impl (string-append label "_label"))
+			  (skip (string-append label "_end_label")))
 			(gen-func-prologue name impl skip)
 			(print-line func)
 			(gen-func-epilogue name skip label)
@@ -1297,6 +1297,22 @@
 		jne finish_"sign"
 
 		; it is a fraction
+		
+		mov rbx, [rax] ; T_FRACTION
+		CDR rbx ; denominator
+		DATA rbx
+		push rbx ; denominator to simplify
+
+		mov rbx, [rax] ; T_FRACTION
+		CAR rbx ; numerator
+		DATA rbx
+		push rbx ; numerator to simplify
+
+		call simplify_fraction  ; rax = address of new T_FRACTION
+		pop rbx ; just balance stack
+		pop rbx ; just balance stack
+		
+		"sign"_fraction_after_simplify:
 		mov rbx, [rax] ; T_FRACTION
 		CDR rbx ; denominator
 		DATA rbx
@@ -1835,7 +1851,7 @@
 (define label-fvars
 	(lambda (labeled-fvars fvars)
 		(if (null? fvars) labeled-fvars
-			(label-fvars (append labeled-fvars (list `(,(car fvars) ,(string-append "Lglob_" (clean-name (symbol->string (car fvars))))))) (cdr fvars)))
+			(label-fvars (append labeled-fvars (list `(,(car fvars) ,(fvar-label)))) (cdr fvars)))
 	))
 
 (define lookup-fvar-get-label

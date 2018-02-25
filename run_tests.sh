@@ -2,7 +2,13 @@
 total_tests=0
 tests_passed=0
 tests_failed=0
+#for f in $(ls -v AllTests/on_the_flyTests/tests/*.scm); do
+#for f in $(ls -v AllTests/*/tests/*.scm); do
+#for f in $(ls -v AllTests/*/*/tests/*.scm); do
+#for f in $(ls -v AllTests/*/ChloucheTests/tests/test267.scm); do
+#for f in $(ls -v AllTests/*/tests/01-some-constants-and-sequences.scm); do
 for rawF in $(ls -v AllTests/*/tests/*.scm); do
+#for rawF in $(ls -v AllTests/2016Tests/tests/tests1.scm); do
   f=`basename $rawF .scm`
   if [ -f "$f" ]; then
     rm "$f"
