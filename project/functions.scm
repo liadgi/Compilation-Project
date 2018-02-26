@@ -1297,15 +1297,30 @@
 		jne finish_"sign"
 
 		; it is a fraction
-		
-		mov rbx, [rax] ; T_FRACTION
-		CDR rbx ; denominator
-		DATA rbx
-		push rbx ; denominator to simplify
+		"sign"_after_operation:
 
+		mov rcx, [rax] ; T_FRACTION
+		CDR rcx ; denominator
+		DATA rcx
+		
 		mov rbx, [rax] ; T_FRACTION
 		CAR rbx ; numerator
 		DATA rbx
+
+		cmp rcx, 0
+		jg "sign"_resume_simplify_fraction
+		;denom_is_negative - flip both
+		mov rax, 0
+		sub rax, rcx
+		mov rcx, rax
+
+		mov rax, 0
+		sub rax, rbx
+		mov rbx, rax		
+		
+		"sign"_resume_simplify_fraction:
+		
+		push rcx ; denominator to simplify
 		push rbx ; numerator to simplify
 
 		call simplify_fraction  ; rax = address of new T_FRACTION

@@ -1,0 +1,62 @@
+Fully implemented functions:
+list
+cons
+boolean?
+char?
+integer?
+not
+null?
+integer->char
+pair?
+procedure?
+rational?
+string?
+< (variadic) - add nested tests - exception on [0 params / param not a number]
+= (variadic) - add nested tests - exception on [0 params / param not a number]
+> (variadic) - add nested tests - exception on [0 params / param not a number]
+denominator
+numerator
++ (variadic)
+/ (variadic)
+* (variadic)
+- (variadic)
+eq? 				 - need more tests
+map (variadic) 		 - need more tests
+append (variadic) 	 - need more tests
+apply (not variadic) - need more tests
+car
+cdr
+zero? - assuming no illegal input [0 params / param not a number]
+make-string
+string-length
+string-ref
+string-set!
+make-vector
+vector
+vector-length
+vector-ref
+vector-set!
+vector?
+remainder
+
+
+Implemented* - should be verified by TAs answers, lookout the tests for more details 
+char->integer - fix the backslash thing or whatever
+number?
+
+
+Not implemented yet:
+symbol table
+symbol->string
+string->symbol
+symbol?
+
+
+
+failed tests
+ChloucheTests/tests/mayer_test02 - append
+
+fixed:
+ChloucheTests/tests/test10 - (if #f 3)
+
+
