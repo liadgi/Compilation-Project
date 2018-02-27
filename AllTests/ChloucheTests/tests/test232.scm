@@ -1,1 +1,0 @@
-(procedure? procedure?)                     ; #t
