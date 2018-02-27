@@ -5,3 +5,6 @@ test.scm
 Makefile~
 *.zip
 run_tests.sh
+foo.o
+foo.s
+foo

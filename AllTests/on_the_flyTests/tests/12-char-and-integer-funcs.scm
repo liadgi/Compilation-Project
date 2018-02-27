@@ -20,9 +20,9 @@
 (integer->char 3)
 (integer->char 33)
 (integer->char 0)
-;(integer->char 255)
-(integer->char -1)
-(integer->char 256)
+;(integer->char 127)
+;(integer->char -1) ; #\ÿ
+;(integer->char 256) ; #\Ā
 
 #;(
 (integer->char)

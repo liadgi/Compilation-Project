@@ -27,7 +27,7 @@
      (lambda (y)
        (set! x 3) x)) 2) 1)  
 (define x 1)
-(list x (set! x 2) x)
+;(list x (set! x 2) x)
 (define test ((lambda (x)
   (lambda (y)
     (let ((oldx x))

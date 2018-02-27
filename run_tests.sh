@@ -8,7 +8,7 @@ tests_failed=0
 #for rawF in $(ls -v AllTests/2016Tests/tests/tests1.scm); do
 for rawF in $(ls -v AllTests/*/tests/*.scm); do
 #for rawF in $(ls -v AllTests/on_the_flyTests/tests/*.scm); do
-#for rawF in $(ls -v AllTests/on_the_flyTests/tests/02-nested-lambdas.scm); do
+#for rawF in $(ls -v AllTests/on_the_flyTests/tests/12-char-and-integer-funcs.scm); do
   f=`basename $rawF .scm`
   if [ -f "$f" ]; then
     rm "$f"
